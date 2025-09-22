@@ -116,16 +116,18 @@ write.csv(df_epi_sorong, "raw_data/temporary_df_epi_sorong.csv",
 setdiff(names(df_epi_manado), names(df_epi_sorong))
 setdiff(names(df_epi_sorong), names(df_epi_manado))
 
-# In the end, I manually merge Manado & Sorong dfs
-# Column differences occur with various values including shifted columns
-# Do not trust coded columns & the "how many vaccination" columns (they were manually coded).
-# I can't trust n vaccination columns because there are date columns available;
-# I manually corrected n vaccination calculations.
+# In the end, I manually merge Manado & Sorong dfs Column differences occur with
+# various values including shifted columns Do not trust coded columns & the "how
+# many vaccination" columns (they were manually coded). I can't trust n
+# vaccination columns because there are date columns available; I manually
+# corrected n vaccination calculations.
 
-# I manually inspect NA values based on data types (numeric & categorical)
-# and many aspects from different columns.
-# 2 NAs in "tidak_termasuk_anak_tersebut_berapa_orang_yang_tinggal_1_rumah_dengan_anak_tersebut" is filled with median/mode = 3
-# 1 NA in "jika_ya_berapa_jika_0_isi_" (healthcare visit); "0" ommited and filled with median/mode = 1 because child is considered ill (batuk)
+# I manually inspect NA values based on data types (numeric & categorical) and
+# many aspects from different columns. < 2% NAs willed with median/modes. 2 NAs
+# in "tidak_termasuk_anak_tersebut_berapa_orang_yang_tinggal_1_rumah_dengan_anak_tersebut"
+# is filled with median/mode = 3 1 NA in "jika_ya_berapa_jika_0_isi_"
+# (healthcare visit); "0" ommited and filled with median/mode = 1 because child
+# is considered ill (batuk)
 
 # Cleaned data is stored in temporary_df_epi_lombok_sumbawa_manual_combine_row.csv:
 df_epi_merged <- read.csv("raw_data/temporary_df_epi_lombok_sumbawa_manual_combine_row.csv") %>% 
@@ -426,12 +428,26 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
   dplyr::transmute(
     specimen_id = specimen_id,
     age_month = age_month,
+    age_year = age_year,
     area = area,
-    sex = sex,
+    sex = case_when(
+      sex == "laki-laki" ~ "male",
+      TRUE ~ "female"
+    ),
     tribe = tribe,
     contact_kindergarten = contact_kindergarten,
     contact_otherChildren = contact_otherChildren,
     contact_cigarettes = contact_cigarettes,
+    contact_cooking_fuel = case_when(
+      contact_cooking_fuel == "lpg/gas alam" ~ "natural gas",
+      contact_cooking_fuel == "kayu" ~ "wood",
+      contact_cooking_fuel == "minyak tanah" ~ "kerosene",
+      TRUE ~ contact_cooking_fuel
+      ),
+    contact_cooking_place = case_when(
+      contact_cooking_place == "di dalam rumah" ~ "indoor",
+      contact_cooking_place == "di luar rumah" ~ "outdoor",
+      ),
     
     breastFeed_compiled = case_when(
       breastMilk_given == "yes" & breastMilk_still_being_given == "yes" ~ "currently breastfeed",
@@ -444,6 +460,7 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
       house_roof == "asbes" ~ "asbestos",
       house_roof == "genteng" ~ "clay tile",
       house_roof == "seng" ~ "metal sheet",
+      house_roof == "kayu" ~ "wood",
       TRUE ~ house_roof # spandek is spandek
     ),
     house_building_regroup = case_when(
@@ -505,7 +522,17 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
       vaccination_pcv13_dc_n == 0 ~ "0 (not yet)",
       vaccination_pcv13_dc_n < 3 ~ "1-2 (mandatory)",
       vaccination_pcv13_dc_n >= 3 ~ "3-4 (booster)"
-    )
+    ),
+    # mode imputation because > 1% missing values (n_max = 12)
+    healthcareVisit_last_3mo = healthcareVisit_last_3mo,
+    hospitalised_last_3mo = case_when(
+      hospitalised_last_3mo == "" | hospitalised_last_3mo == "unknown" ~ "no",
+      TRUE ~ hospitalised_last_3mo
+      ),
+    antibiotic_past3days = case_when(
+      antibiotic_past3days == "unknown" ~ "no",
+      TRUE ~ antibiotic_past3days
+      ),
   ) %>% 
   glimpse()
 

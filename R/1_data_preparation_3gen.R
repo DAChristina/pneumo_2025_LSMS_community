@@ -66,7 +66,7 @@ setdiff(names(df_epi_sorong), names(df_epi_manado))
 
 # just temporary extract specimen_id and area
 
-df_gen_all <- dplyr::left_join(
+df_gen_all <- dplyr::right_join(
   read.csv("raw_data/temporary_df_epi_lombok_sumbawa_manual_combine_row_cleaned.csv") %>% 
     dplyr::select(specimen_id, area) %>% 
     dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
