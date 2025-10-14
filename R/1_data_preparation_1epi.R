@@ -41,14 +41,15 @@ df_epi_sumbawa <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (
 # Detect duplicated IDs
 df_epi_sumbawa_duplicated_ids <- df_epi_sumbawa %>% 
   dplyr::count(SPECIMEN_ID) %>% 
-  dplyr::filter(SPECIMEN_ID > 1) %>% 
   dplyr::mutate(category = case_when(
     n == 2 ~ "Duplicated",
     n == 3 ~ "Triplicated",
     n == 4 ~ "Quadruplicated",
     n > 4 ~ "More than Quadruplicated"
   )) %>% 
-  view()
+  dplyr::filter(SPECIMEN_ID > 1) %>% 
+  # view() %>% 
+  glimpse()
 
 write.csv(df_epi_sumbawa, "raw_data/temporary_df_epi_sumbawa.csv",
           row.names = F)

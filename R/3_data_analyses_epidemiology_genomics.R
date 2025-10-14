@@ -4,38 +4,7 @@ source("global/fun.R")
 df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
   # dplyr::filter(workPoppunk_qc == "pass_qc") %>%
   dplyr::filter(workWGS_species_pw == "Streptococcus pneumoniae") %>% 
-  dplyr::mutate(
-    serotype_final_decision = case_when(
-      serotype_final_decision == "mixed serotypes/serogroups" ~ "mixed serogroups",
-      TRUE ~ serotype_final_decision
-    ),
-    serotype_final_decision = factor(serotype_final_decision,
-                                     levels = c(
-                                       # VT
-                                       # "3", "6A/6B", "6A/6B/6C/6D", "serogroup 6",
-                                       # "14", "17F", "18C/18B", "19A", "19F", "23F",
-                                       "1", "3", "4", "5", "7F",
-                                       "6A", "6B", "9V", "14", "18C",
-                                       "19A", "19F", "23F",
-                                       # NVT
-                                       # "7C", "10A", "10B", "11A/11D", "13", "15A", "15B/15C",
-                                       # "16F", "19B", "20", "23A", "23B", "24F/24B", "25F/25A/38",
-                                       # "28F/28A", "31", "34", "35A/35C/42", "35B/35D", "35F",
-                                       # "37", "39", "mixed serogroups",
-                                       "serogroup 6", "6C", "7C", "10A", "10B",
-                                       "11A", "13", "15A", "15B", "15C", "16F",
-                                       "17F", "18B", "19B", "20", "23A", "23B",
-                                       "23B1", "24F", "25B", "28A", "31", "33B",
-                                       "34", "35A", "35B", "35C", "35F", "37",
-                                       "37F", "38", "39",
-                                       "untypeable")),
-    serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "untypeable")),
-    serotype_classification_PCV15_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "untypeable"))
-  ) %>%
   dplyr::select(-specimen_id,
-                -workWGS_no,
                 -contains("workFasta")) %>% 
   glimpse()
 
@@ -49,8 +18,13 @@ test$stdres # post-hoc, usually find those with stdRes > |2|
 test
 
 # I suspect for statistically significant difference occurs among areas
-test_ageG <- fisher.test(df_epi_gen_pneumo$serotype_classification_PCV13_final_decision,
-                         df_epi_gen_pneumo$age_year_3groups, workspace = 2e7)
+tbl <- table(df$final, df$agegroups)
+fisher.test(tbl, workspace = 2e7)
+
+test_ageG <- fisher.test(table(
+  df_epi_gen_pneumo$serotype_classification_PCV13_final_decision,
+  df_epi_gen_pneumo$age_year_3groups),
+  workspace = 2e7)
 # test_postHoc <- rstatix::pairwise_fisher_test(table(df_epi_gen_pneumo$serotype_classification_PCV13_final_decision,
 #                                                     df_epi_gen_pneumo$age_year_3groups),
 #                                               p.adjust.method = "bonferroni")

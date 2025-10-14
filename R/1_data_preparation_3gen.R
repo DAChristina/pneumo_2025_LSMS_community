@@ -22,19 +22,20 @@ df_epi_manado <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (M
 # Detect duplicated IDs
 df_epi_manado_duplicated_ids <- df_epi_manado %>% 
   dplyr::count(SPECIMEN_ID) %>% 
-  dplyr::filter(SPECIMEN_ID > 1) %>% 
   dplyr::mutate(category = case_when(
     n == 2 ~ "Duplicated",
     n == 3 ~ "Triplicated",
     n == 4 ~ "Quadruplicated",
     n > 4 ~ "More than Quadruplicated"
   )) %>% 
-  view()
+  dplyr::filter(n > 1) %>% 
+  # view() %>% 
+  glimpse()
 
 write.csv(df_epi_manado, "raw_data/temporary_df_epi_manado.csv",
           row.names = F)
 
-df_epi_sorong <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver4.xlsx",
+df_epi_sorong <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver5.xlsx",
                                     sheet = "Papua") %>% 
   dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
   dplyr::mutate(SPECIMEN_ID = gsub("-", "_", SPECIMEN_ID),
@@ -48,14 +49,15 @@ df_epi_sorong <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (M
 # Detect duplicated IDs
 df_epi_sorong_duplicated_ids <- df_epi_sorong %>% 
   dplyr::count(SPECIMEN_ID) %>% 
-  dplyr::filter(SPECIMEN_ID > 1) %>% 
   dplyr::mutate(category = case_when(
     n == 2 ~ "Duplicated",
     n == 3 ~ "Triplicated",
     n == 4 ~ "Quadruplicated",
     n > 4 ~ "More than Quadruplicated"
   )) %>% 
-  view()
+  dplyr::filter(n > 1) %>% 
+  # view() %>% 
+  glimpse()
 
 write.csv(df_epi_sorong, "raw_data/temporary_df_epi_sorong.csv",
           row.names = F)
@@ -67,12 +69,13 @@ setdiff(names(df_epi_sorong), names(df_epi_manado))
 # just temporary extract specimen_id and area
 
 df_gen_all <- dplyr::right_join(
-  read.csv("raw_data/temporary_df_epi_lombok_sumbawa_manual_combine_row_cleaned.csv") %>% 
+  read.csv("inputs/epiData_eng.csv") %>% 
     dplyr::select(specimen_id, area) %>% 
     dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
   ,  
   # I manually edit 49 naming inconsistencies and analyse LBK_137 from contigs
-  readxl::read_excel("raw_data/Data WGS S. pneumoniae.xlsx") %>% 
+  readxl::read_excel("raw_data/Data WGS S. pneumoniae.xlsx",
+                     sheet = "Rekap Keseluruhan Baru") %>% 
     dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
     dplyr::rename_with(~ tolower(gsub("[^[:alnum:]_]", "", .x))) %>% 
     dplyr::rename_all(~ paste0("workWGS_", .)) %>% 
@@ -252,16 +255,24 @@ df_gen_all <- dplyr::right_join(
   ,
   join_by("workFasta_name" == "workWGS_dc_id")
 ) %>% 
+  dplyr::filter(!is.na(area)) %>% 
   dplyr::mutate(
     serotype_final_decision = case_when(
       workWGS_serotype == "03" ~ "3",
       workWGS_serotype == "06A" ~ "6A",
+      workWGS_serotype == "06B" ~ "6B",
       workWGS_serotype == "6E(6B)" ~ "6B",
-      workWGS_serotype == "untypable" ~ "nontypeable",
-      workWGS_serotype == "10X" ~ "nontypeable",
-      workWGS_serotype == "Swiss_NT" ~ "nontypeable",
-      workWGS_serotype == "alternative_aliB_NT" ~ "nontypeable",
-      workWGS_serotype == "NCC1_pspK_NESp" ~ "nontypeable",
+      workWGS_serotype == "06C" ~ "6C",
+      workWGS_serotype == "06C" ~ "6C",
+      workWGS_serotype == "07C" ~ "7C",
+      workWGS_serotype == "untypable" | 
+        workWGS_serotype == "untypeable" |
+        workWGS_serotype == "Untypable" |
+        workWGS_serotype == "10X" |
+        workWGS_serotype == "Swiss_NT" |
+        workWGS_serotype == "alternative_aliB_NT" |
+        workWGS_serotype == "NCC1_pspK_NESp" |
+        workWGS_serotype == "NCC1_pspK_non_encapsulated" ~ "nontypeable",
       workWGS_serotype == "serogroup 24" ~ "24F",
       workWGS_serotype == "24B/24C/24F" ~ "24B/C/F",
       TRUE ~ workWGS_serotype
@@ -298,13 +309,41 @@ df_gen_all <- dplyr::right_join(
   glimpse()
 
 # test serotype list for factors
-test_serotypes <- df_gen_all %>% 
+df_gen_all %>% 
   dplyr::select(workWGS_serotype,
                 serotype_final_decision,
                 serotype_classification_PCV13_final_decision) %>% 
   # view() %>% 
   glimpse()
 
+# sanity check for area and species
+df_gen_all %>% 
+  filter(!is.na(workWGS_species_pw)) %>% 
+  group_by(area) %>% 
+  summarise(count = n()) %>% 
+  glimpse()
+
+df_gen_all %>% 
+  group_by(workWGS_species_pw) %>% 
+  summarise(count_sp = n()) %>% 
+  # view() %>% 
+  glimpse()
+
 write.csv(df_gen_all, "inputs/genData_all.csv", row.names = F)
 
 
+# combine epiData with genData
+df_epi_gen_pneumo <- dplyr::left_join(
+  read.csv("inputs/epiData_eng.csv")
+  ,
+  read.csv("inputs/genData_all.csv") %>% 
+    dplyr::select(-area)
+  ,
+  by = "specimen_id"
+) %>% 
+  dplyr::distinct(specimen_id, .keep_all = T) %>% # check duplicated IDs in genData
+  glimpse()
+
+write.csv(df_epi_gen_pneumo,
+          "inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv",
+          row.names = F)

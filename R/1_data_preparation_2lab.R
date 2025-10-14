@@ -72,7 +72,7 @@ df_final_pneumo %>%
                   final_pneumo_decision
   ) %>% 
   dplyr::summarise(count = n()) %>% 
-  # view() %>%
+  view() %>%
   glimpse()
 
 
