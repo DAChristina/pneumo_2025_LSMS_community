@@ -23,6 +23,7 @@ inst/web
 raw_data/
 inputs/
 outputs/
+pictures/
 global/
 renv/
 report/

@@ -4,51 +4,128 @@ library(tidyverse)
 # Generate available fasta list first!
 # urgent data preparation for WGS checking
 
-df_workLab_manado_sorong <- dplyr::left_join(
-  read.csv("inputs/workLab_data_manado_sorong.csv")
+# newest (cleaned) data for labWork (29 October 2025, ver. 6)
+# I manually combined the data (negatives were in hidden columns)
+read_pos <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver6.xlsx") %>% 
+  janitor::clean_names() %>% 
+  detoxdats::lowerval_except(., exclude = "specimen_id") %>%
+  dplyr::mutate(
+    specimen_id = gsub("[ -]", "_", specimen_id), # instead of using " |-"),
+    labWork_status = "validated by RFS"
+  ) %>%
+  glimpse()
+
+
+# test all data from ver. 6
+sheet_all <- readxl::excel_sheets(
+  "raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver6.xlsx") %>% 
+  glimpse()
+sheet_names <- sheet_all[!tolower(sheet_all) %in% "combined"]
+
+bind_all_labWork_data <- data.frame()
+for(s in sheet_names){
+  read_all <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver6.xlsx",
+                                sheet = s) %>% 
+    janitor::clean_names() %>% 
+    detoxdats::lowerval_except(., exclude = "specimen_id") %>%
+    dplyr::mutate(
+      specimen_id = gsub("[ -]", "_", specimen_id), # instead of using " |-")
+      ) %>% 
+    dplyr::select(2:12)
+  
+  bind_all_labWork_data <- dplyr::bind_rows(bind_all_labWork_data, read_all)
+  bind_all_labWork_data
+}
+
+# bind all data to see non-validated samples
+labWork_all <- dplyr::left_join(
+  bind_all_labWork_data
   ,
-  read.csv("inputs/test_fasta_names_manado_sorong.csv",
-           col.names = "workFasta_name_with_extension") %>% 
-    dplyr::mutate(workFasta_file_check = "Accepted_by_DC",
-                  specimen_id = gsub("Streptococcus_pneumoniae_", "", workFasta_name_with_extension),
-                  specimen_id = gsub(".fasta", "", specimen_id),)
+  read_pos %>% 
+    dplyr::select(specimen_id, labWork_status)
   ,
   by = "specimen_id"
 ) %>% 
-  dplyr::mutate(
-    wgs_shipment_date = as.character(wgs_shipment_date),
-    workWGS_success_failed = as.character(workWGS_success_failed)
-  ) %>% 
+  dplyr::mutate(across(where(is.character), ~na_if(.x, "n/a")),
+                # validated by DCs
+                labWork_status = ifelse(is.na(labWork_status) &
+                                          (
+                                            # wgs_result == "dna concentration insufficient" |
+                                             stringr::str_detect(wgs_result, "streptococcus_pneumoniae_")),
+                                        "validated by DC", labWork_status),
+                ) %>% 
+  # dplyr::filter(is.na(labWork_status) #&
+  #                 ) %>%
+  distinct(specimen_id, .keep_all = T) %>% 
+  view() %>% 
   glimpse()
-# required: workFasta_file_check & workFasta_name_with_extension
 
-df_workLab_lombok_sumbawa <- read.csv("inputs/workLab_data_lombok_sumbawa.csv") %>% 
-  dplyr::mutate(
-    wgs_shipment_date = as.character(wgs_shipment_date),
-    workWGS_success_failed = as.character(workWGS_success_failed)
+# personal notes:
+# 18 = DNA concentration insufficient
+# 
+
+
+
+
+
+
+
+
+
+lab_data <- bind_NP_data %>% 
+  dplyr::filter(!is.na(id)) %>% 
+  dplyr::transmute(
+    labWork_id = gsub("[ -]", "_", id), # instead of using " |-"),
+    labWork_culture = labWork_culture,
+    labWork_checkArea = temporary_area
   ) %>% 
+  dplyr::mutate(across(where(is.character), tolower)) %>% 
   glimpse()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 df_final_pneumo <- dplyr::bind_rows(
   df_workLab_lombok_sumbawa
   ,
   df_workLab_manado_sorong
-) %>% 
+  ) %>%
+  # cleanup genData first
+  dplyr::left_join(
+    read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
+      dplyr::select(specimen_id, workWGS_species_pw)
+    ,
+    by = "specimen_id"
+  ) %>% 
   dplyr::mutate(
     final_pneumo_decision = case_when(
-      # workWGS_species_pw == "streptococcus pneumoniae" | workWGS_MLST_dc_species == "spneumoniae" ~ "positive",
+      workWGS_species_pw == "Streptococcus pneumoniae" ~ "positive",
       # optochin == "s" | optochin == "?" ~ "positive", # "s" can be negative based on WGS result
       workLab_optochin == "?" ~ "positive",
       workLab_optochin == "r" ~ "negative", # correct notes result based on optochin & culture result
       workLab_culture_result == "neg" ~ "negative",
-      workLab_culture_suspect == "yes" & workLab_culture_result == "pos" ~ "positive",
+      workLab_culture_suspect == "yes" & 
+        workLab_culture_result == "pos" ~ "positive",
       # workLab_culture_suspect == "yes" & workLab_culture_result == "pos" ~ "negative",  # OR "Failed_to_be_extracted"?
       # workLab_culture_suspect == "yes" & workWGS_species_pw != "streptococcus pneumoniae" ~ "negative",  # OR "Failed_to_be_extracted"?
       TRUE ~ workLab_culture_result
     ),
     final_pneumo_decision = case_when(
       final_pneumo_decision == "neg" ~ "negative",
+      final_pneumo_decision == "pos" ~ "negative", # negative optochin
       is.na(final_pneumo_decision) ~ "negative",
+      workLab_optochin == "s" ~ "positive",
       TRUE ~ final_pneumo_decision  # ensure other values remain unchanged
     )
   ) %>%
@@ -68,13 +145,18 @@ df_final_pneumo %>%
                   workLab_culture_result,
                   workLab_culture_result_final, workLab_culture_notes,
                   # workBLAST_lytA_predicted_species,
-                  # workWGS_MLST_dc_species, workWGS_species_pw,
+                  workWGS_species_pw,
                   final_pneumo_decision
   ) %>% 
   dplyr::summarise(count = n()) %>% 
-  view() %>%
+  # view() %>%
   glimpse()
 
+table(df_final_pneumo$final_pneumo_decision)
+table(df_final_pneumo$area)
+write.csv(df_final_pneumo,
+          "inputs/workLab_data.csv",
+          row.names = F)
 
 # filter data to available fasta files for manado & sorong:
 filtered_data_to_be_shared <- df_final_pneumo %>% 

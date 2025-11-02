@@ -124,7 +124,7 @@ setdiff(names(df_epi_sorong), names(df_epi_manado))
 # corrected n vaccination calculations.
 
 # I manually inspect NA values based on data types (numeric & categorical) and
-# many aspects from different columns. < 2% NAs willed with median/modes. 2 NAs
+# many aspects from different columns. < 2% NAs filled with median/modes. 2 NAs
 # in "tidak_termasuk_anak_tersebut_berapa_orang_yang_tinggal_1_rumah_dengan_anak_tersebut"
 # is filled with median/mode = 3 1 NA in "jika_ya_berapa_jika_0_isi_"
 # (healthcare visit); "0" ommited and filled with median/mode = 1 because child
@@ -224,9 +224,9 @@ df_epi_clean <- df_epi_merged %>%
       age_month >= 13 ~ "more than 1"
     ),
     age_year_3groups = case_when(
-      age_month < 13 ~ "1 and below",
-      age_month >= 13 & age_month < 25 ~ "1-2",
-      age_month >= 25 & age_month < 61 ~ "3-5",
+      age_month < 13 ~ "< 1 year old",
+      age_month >= 13 & age_month < 25 ~ "1-2 years old",
+      age_month >= 25 & age_month < 61 ~ "3-5 years old",
     ),
     # generate VTs and NVTs according to PCV13
     serotype_wgs = toupper(serotype_wgs),
@@ -304,7 +304,7 @@ df_epi_clean <- df_epi_merged %>%
       TRUE ~ house_roof
     ),
     house_building_regroup = case_when(
-      house_building %in% c("batu", "batu bata") ~ "batu bata",
+      house_building %in% c("batu", "batu bata", "batu  bata") ~ "batu bata",
       house_building %in% c("anyaman bambu", "bambu", "kayu", "triplek") ~ "bambu/triplek",
       TRUE ~ house_building
     ),
@@ -430,6 +430,7 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
     specimen_id = specimen_id,
     age_month = age_month,
     age_year = age_year,
+    age_year_3groups = age_year_3groups,
     area = area,
     sex = case_when(
       sex == "laki-laki" ~ "male",
@@ -465,7 +466,7 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
       TRUE ~ house_roof # spandek is spandek
     ),
     house_building_regroup = case_when(
-      house_building %in% c("batu", "batu bata") ~ "brick",
+      house_building %in% c("batu", "batu bata", "batu   bata") ~ "brick",
       house_building %in% c("anyaman bambu", "bambu", "kayu", "triplek") ~ "bamboo/plywood",
       house_building == "batako" ~ "concrete block",
       TRUE ~ house_building

@@ -1,6 +1,56 @@
 library(tidyverse)
 source("global/fun.R")
 
+
+# epi vaccination coverage #####################################################
+df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>% 
+  dplyr::group_by(area, vaccination_pcv13_dc_n_regroup) %>% 
+  dplyr::summarise(count_nvac = n()) %>%
+  dplyr::left_join(
+    read.csv("inputs/epiData_eng.csv") %>% 
+      dplyr::group_by(area) %>% 
+      dplyr::summarise(count_area = n())
+    ,
+    by = "area"
+  ) %>% 
+  dplyr::mutate(percentage = round(count_nvac / count_area * 100, 1),
+                area = factor(area,
+                              levels = c("lombok", "sumbawa",
+                                         "manado", "sorong"))
+                ) %>%
+  dplyr::arrange(desc(percentage)) %>% 
+  # dplyr::transmute(
+  #   group = vaccination_pcv13_dc_n_regroup,
+  #   report = paste0(count_nvac, "/", count_area,  " (", percentage, "%)")
+  # ) %>%
+  glimpse() %>% 
+  ggplot(.,
+         aes(x = vaccination_pcv13_dc_n_regroup,
+             y = percentage,
+             fill = area)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")),
+            vjust = -0.5, size = 3,
+            angle = 0,
+            position = position_dodge(width = 1)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_fill_manual(values = c(col_map)) +
+  labs(x = "PCV13 vaccination", y = "Percentage", 
+       # title = "All Serotypes"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
+        legend.position = c(0.02, 0.75),
+        legend.direction = "vertical",
+        legend.justification = c("left", "top"),
+        legend.background = element_rect(fill = NA, color = NA),
+        legend.title = element_blank(),
+        legend.margin = margin(t = -50),
+        legend.spacing.y = unit(-0.3, "cm")) # +
+# facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
+df_vaccCoverage
+
+
 # data viz just only for serotype & AMR ########################################
 df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
   # dplyr::filter(workPoppunk_qc == "pass_qc") %>%
@@ -24,11 +74,12 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                        # "28F/28A", "31", "34", "35A/35C/42", "35B/35D", "35F",
                                        # "37", "39", "mixed serogroups",
                                        "serogroup 6", "6C", "7C",
-                                       "10", "10A", "10B",
-                                       "11A", "13", "15A", "15B", "15C", "16F",
-                                       "17F", "18B", "19B", "20", "20B", "21",
-                                       "23A", "23B", "23B1",
-                                       "24B/C/F", "24F", "25B",
+                                       "10", "10A", "10B", "11A", "13",
+                                       "15A", "15B", "15C","15B/15C", "16F",
+                                       "17F", "18A", "18B", "19B", "20", "20B",
+                                       "21", "23A", "23B", "23B1",
+                                       "24F", "24B/C/F", "24B/24C/24F", "serogroup 24",
+                                       "25B", "25F",
                                        "28A", "31", "33B", "33G",
                                        "34", "35A", "35B", "35C", "35F", "37",
                                        "37F", "38", "39",
@@ -75,7 +126,7 @@ df_serotype_classification_perArea_summary <- df_epi_gen_pneumo %>%
   dplyr::mutate(percentage = n / sum(n) * 100) %>% 
   glimpse()
 
-# compiled VT percentage per area
+# compiled VT percentage per area ##############################################
 df_compiled_VT_percentage <- dplyr::left_join(
   df_epi_gen_pneumo %>% 
     dplyr::group_by(area, serotype_classification_PCV13_final_decision) %>% 
@@ -113,7 +164,7 @@ df_compiled_VT_percentage <- dplyr::left_join(
   glimpse()
 
 png(file = "pictures/genData_serotypes_vaccineGroup.png",
-    width = 23, height = 20, unit = "cm", res = 600)
+    width = 29, height = 20, unit = "cm", res = 600)
 ggplot(df_compiled_VT_percentage, aes(x = serotype_classification_PCV13_final_decision,
                                       y = percent,
                                       fill = area)) +
@@ -144,13 +195,16 @@ ggplot(df_compiled_VT_percentage, aes(x = serotype_classification_PCV13_final_de
 dev.off()
 
 
-
-
-
-ser1 <- ggplot(df_serotype_summary, aes(x = serotype_final_decision, y = percentage,
-                                        fill = serotype_classification_PCV13_final_decision)) +
+# serotypes per-area ###########################################################
+ser1 <- ggplot(df_serotype_summary %>% 
+                 dplyr::mutate(percentage_label = ifelse(percentage < 3, NA,
+                                                         paste0(round(percentage, 1), "%")))
+               ,
+               aes(x = serotype_final_decision, y = percentage,
+                   fill = serotype_classification_PCV13_final_decision)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = paste0(round(percentage, 1), "%")), vjust = -0.5, size = 3) +
+  geom_text(aes(label = percentage_label),
+            vjust = -0.5, size = 3) +
   scale_y_continuous(labels = scales::percent_format(scale = 1)) +
   labs(x = " ", y = "Percentage", 
        # title = "All Serotypes"
@@ -158,28 +212,104 @@ ser1 <- ggplot(df_serotype_summary, aes(x = serotype_final_decision, y = percent
   scale_fill_manual(values = c(col_map)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.2, 0.75),
+        legend.position = c(0.22, 0.75),
         legend.direction = "vertical",
         legend.justification = c("left", "top"),
         legend.background = element_rect(fill = NA, color = NA),
         legend.title = element_blank(),
         legend.margin = margin(t = -50),
         legend.spacing.y = unit(-0.3, "cm"))
+ser1
 
-# Compute percentage by area
-df_serotype_area_summary <- df_epi_gen_pneumo %>% 
-  dplyr::group_by(area, serotype_classification_PCV13_final_decision, serotype_final_decision) %>%
+# Compute percentage by age_year_3groups
+df_serotype_age_year_3groups_summary <- df_epi_gen_pneumo %>% 
+  dplyr::group_by(age_year_3groups, serotype_final_decision) %>%
   dplyr::summarise(count = n(), .groups = "drop") %>%
+  dplyr::group_by(age_year_3groups) %>% 
+  # percentage is calculated from count_serotype per age_year_3groups
   dplyr::mutate(percentage = count / sum(count) * 100,
-                # slightly change classifications
+                age_year_3groups = factor(age_year_3groups,
+                                  levels = c("1", "2", "3", "4", "5")),
+                serotype_classification_PCV13_final_decision = case_when(
+                  serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                 "6A", "6B", "9V", "14", "18C",
+                                                 "19A", "19F", "23F") ~ "VT",
+                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  TRUE ~ "NVT"
+                ),
+                serotype_classification_PCV15_final_decision = case_when(
+                  serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                 "6A", "6B", "9V", "14", "18C",
+                                                 "19A", "19F", "23F",
+                                                 "22F", "33F") ~ "VT",
+                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  TRUE ~ "NVT"
+                ),
                 serotype_classification_PCV13_final_decision = case_when(
                   serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
                   TRUE ~ serotype_classification_PCV13_final_decision
                 ),
                 serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
                                                                       levels = c("VT", "NVT", " ")),
+  )
+
+# ser_age <- ggplot(df_serotype_age_year_3groups_summary, aes(x = serotype_final_decision,
+#                                                     y = percentage,
+#                                                     fill = age_year_3groups)) +
+#   geom_bar(stat = "identity", position = position_dodge()) +
+#   # geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 3) +
+#   scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+#   facet_grid(~ serotype_classification_PCV13_final_decision,
+#              scales = "free_x",
+#              space = "free_x"
+#   ) +
+#   scale_fill_manual(values = c(col_map)) +
+#   labs(x = "Category", y = "Percentage", 
+#        # title = "All Serotypes"
+#   ) +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+#         legend.position = c(0.02, 0.75),
+#         legend.direction = "vertical",
+#         legend.justification = c("left", "top"),
+#         legend.background = element_rect(fill = NA, color = NA),
+#         legend.title = element_blank(),
+#         legend.margin = margin(t = -50),
+#         legend.spacing.y = unit(-0.3, "cm")) # +
+# # facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
+# ser_age
+
+
+# Compute percentage by area
+df_serotype_area_summary <- df_epi_gen_pneumo %>% 
+  dplyr::group_by(area, serotype_final_decision) %>%
+  dplyr::summarise(count = n(), .groups = "drop") %>%
+  dplyr::group_by(area) %>% 
+  # percentage is calculated from count_serotype per area
+  dplyr::mutate(percentage = count / sum(count) * 100,
                 area = factor(area,
-                              levels = c("lombok", "sumbawa", "manado", "sorong"))
+                              levels = c("lombok", "sumbawa", "manado", "sorong")),
+                serotype_classification_PCV13_final_decision = case_when(
+                  serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                 "6A", "6B", "9V", "14", "18C",
+                                                 "19A", "19F", "23F") ~ "VT",
+                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  TRUE ~ "NVT"
+                ),
+                serotype_classification_PCV15_final_decision = case_when(
+                  serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                 "6A", "6B", "9V", "14", "18C",
+                                                 "19A", "19F", "23F",
+                                                 "22F", "33F") ~ "VT",
+                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  TRUE ~ "NVT"
+                ),
+                serotype_classification_PCV13_final_decision = case_when(
+                  serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                  TRUE ~ serotype_classification_PCV13_final_decision
+                ),
+                serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                      levels = c("VT", "NVT", " ")),
   )
 
 ser2 <- ggplot(df_serotype_area_summary, aes(x = serotype_final_decision,
@@ -198,7 +328,7 @@ ser2 <- ggplot(df_serotype_area_summary, aes(x = serotype_final_decision,
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.02, 0.75),
+        legend.position = c(0.22, 0.75),
         legend.direction = "vertical",
         legend.justification = c("left", "top"),
         legend.background = element_rect(fill = NA, color = NA),
@@ -206,12 +336,339 @@ ser2 <- ggplot(df_serotype_area_summary, aes(x = serotype_final_decision,
         legend.margin = margin(t = -50),
         legend.spacing.y = unit(-0.3, "cm")) # +
 # facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
+ser2
 
-png(file = "pictures/genData_serotypes_classification_filterPneumo.png", width = 23, height = 25, unit = "cm", res = 600)
+png(file = "pictures/genData_serotypes_classification_filterPneumo.png",
+    width = 29, height = 23, unit = "cm", res = 600)
 cowplot::plot_grid(ser1, ser2,
                    nrow = 2,
                    labels = c("A", "B"))
 dev.off()
+
+
+# additional visualisation of serotype percentage per area & age ###############
+# additional visualisation of serotype percentage per area & age
+# levels = c("lombok", "sumbawa", "manado", "sorong"))
+area <- unique(df_epi_gen_pneumo$area)
+plotStore_area <- list()
+
+for(a in area){
+  plot <- df_epi_gen_pneumo %>% 
+    dplyr::filter(area == a) %>% 
+    dplyr::group_by(age_year_3groups, serotype_final_decision) %>%
+    dplyr::summarise(count = n(), .groups = "drop") %>%
+    dplyr::group_by(age_year_3groups) %>% 
+    # percentage is calculated from count_serotype per area
+    dplyr::mutate(percentage = count / sum(count) * 100,
+                  age_year_3groups = factor(age_year_3groups,
+                                    levels = c("< 1 year old",
+                                               "1-2 years old",
+                                               "3-5 years old")),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV15_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F",
+                                                   "22F", "33F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    TRUE ~ serotype_classification_PCV13_final_decision
+                  ),
+                  serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                        levels = c("VT", "NVT", " ")),
+    ) %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = percentage,
+               fill = age_year_3groups)) +
+    geom_bar(stat = "identity", position = position_dodge()) +
+    # geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = "Category", y = "Percentage", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    labs(x = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          # legend.position = "none",
+          legend.direction = "vertical",
+          # legend.justification = "bottom",
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_area[[a]] <- plot
+}
+
+png(file = "pictures/genData_serotypes_classification_filterPneumo_area.png",
+    width = 29, height = 46, unit = "cm", res = 600)
+cowplot::plot_grid(plotStore_area[[1]],
+                   plotStore_area[[3]],
+                   plotStore_area[[4]],
+                   plotStore_area[[2]],
+                   nrow = 4)
+dev.off()
+
+# additional visualisation of serotype percentage per PCV13-implemented area & age
+# levels = c("PCV13-implemented area", "Not yet implemented area"))
+vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
+                             "Not yet implemented area (Manado & Sorong)")
+plotStore_vaccArea <- list()
+
+for(a in vaccination_status_area){
+  plot <- df_epi_gen_pneumo %>% 
+    dplyr::mutate(vaccination_status_area = case_when(
+      area == "lombok" |
+        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+    )
+    ) %>% 
+    dplyr::filter(vaccination_status_area == a) %>% 
+    dplyr::group_by(age_year_3groups, serotype_final_decision) %>%
+    dplyr::summarise(count = n(), .groups = "drop") %>%
+    dplyr::group_by(age_year_3groups) %>% 
+    # percentage is calculated from count_serotype per area
+    dplyr::mutate(percentage = count / sum(count) * 100,
+                  age_year_3groups = factor(age_year_3groups,
+                                            levels = c("< 1 year old",
+                                                       "1-2 years old",
+                                                       "3-5 years old")),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV15_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F",
+                                                   "22F", "33F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    TRUE ~ serotype_classification_PCV13_final_decision
+                  ),
+                  serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                        levels = c("VT", "NVT", " ")),
+    ) %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = percentage,
+               fill = age_year_3groups)) +
+    geom_bar(stat = "identity", position = position_dodge()) +
+    # geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = "Category", y = "Percentage", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    labs(x = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          # legend.position = "none",
+          legend.direction = "vertical",
+          # legend.justification = "bottom",
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_vaccArea[[a]] <- plot
+}
+
+png(file = "pictures/genData_serotypes_classification_filterPneumo_vaccArea.png",
+    width = 29, height = 23, unit = "cm", res = 600)
+cowplot::plot_grid(plotlist = plotStore_vaccArea,
+                   nrow = 2)
+dev.off()
+
+
+# additional visualisation of serotype percentage per area & age (year) ########
+# additional visualisation of serotype percentage per area & age
+# levels = c("lombok", "sumbawa", "manado", "sorong"))
+area <- unique(df_epi_gen_pneumo$area)
+plotStore_area <- list()
+
+for(a in area){
+  plot <- df_epi_gen_pneumo %>% 
+    dplyr::filter(area == a) %>% 
+    dplyr::group_by(age_year, serotype_final_decision) %>%
+    dplyr::summarise(count = n(), .groups = "drop") %>%
+    dplyr::group_by(age_year) %>% 
+    # percentage is calculated from count_serotype per area
+    dplyr::mutate(percentage = count / sum(count) * 100,
+                  age_year = factor(age_year,
+                                    levels = c("0", "1", "2", "3", "4", "5")),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV15_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F",
+                                                   "22F", "33F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    TRUE ~ serotype_classification_PCV13_final_decision
+                  ),
+                  serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                        levels = c("VT", "NVT", " ")),
+    ) %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = percentage,
+               fill = age_year)) +
+    geom_bar(stat = "identity", position = position_dodge()) +
+    # geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = "Category", y = "Percentage", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    labs(x = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          # legend.position = "none",
+          legend.direction = "vertical",
+          # legend.justification = "bottom",
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_area[[a]] <- plot
+}
+
+png(file = "pictures/genData_serotypes_classification_filterPneumo_area_year.png",
+    width = 29, height = 46, unit = "cm", res = 600)
+cowplot::plot_grid(plotStore_area[[1]],
+                   plotStore_area[[3]],
+                   plotStore_area[[4]],
+                   plotStore_area[[2]],
+                   nrow = 4)
+dev.off()
+
+# additional visualisation of serotype percentage per PCV13-implemented area & age
+# levels = c("PCV13-implemented area", "Not yet implemented area"))
+vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
+                             "Not yet implemented area (Manado & Sorong)")
+plotStore_vaccArea <- list()
+
+for(a in vaccination_status_area){
+  plot <- df_epi_gen_pneumo %>% 
+    dplyr::mutate(vaccination_status_area = case_when(
+      area == "lombok" |
+        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+    )
+    ) %>% 
+    dplyr::filter(vaccination_status_area == a) %>% 
+    dplyr::group_by(age_year, serotype_final_decision) %>%
+    dplyr::summarise(count = n(), .groups = "drop") %>%
+    dplyr::group_by(age_year) %>% 
+    # percentage is calculated from count_serotype per area
+    dplyr::mutate(percentage = count / sum(count) * 100,
+                  age_year = factor(age_year,
+                                    levels = c("0", "1", "2", "3", "4", "5")),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV15_final_decision = case_when(
+                    serotype_final_decision %in% c("1", "3", "4", "5", "7F",
+                                                   "6A", "6B", "9V", "14", "18C",
+                                                   "19A", "19F", "23F",
+                                                   "22F", "33F") ~ "VT",
+                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    TRUE ~ "NVT"
+                  ),
+                  serotype_classification_PCV13_final_decision = case_when(
+                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    TRUE ~ serotype_classification_PCV13_final_decision
+                  ),
+                  serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                        levels = c("VT", "NVT", " ")),
+    ) %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = percentage,
+               fill = age_year)) +
+    geom_bar(stat = "identity", position = position_dodge()) +
+    # geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 3) +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = "Category", y = "Percentage", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    labs(x = NULL) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          # legend.position = "none",
+          legend.direction = "vertical",
+          # legend.justification = "bottom",
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_vaccArea[[a]] <- plot
+}
+
+png(file = "pictures/genData_serotypes_classification_filterPneumo_vaccArea_year.png",
+    width = 29, height = 23, unit = "cm", res = 600)
+cowplot::plot_grid(plotlist = plotStore_vaccArea,
+                   nrow = 2)
+dev.off()
+
 
 # AMR analyses & viz ###########################################################
 # load df_epi_gen_pneumo first
@@ -238,11 +695,12 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                        # "28F/28A", "31", "34", "35A/35C/42", "35B/35D", "35F",
                                        # "37", "39", "mixed serogroups",
                                        "serogroup 6", "6C", "7C",
-                                       "10", "10A", "10B",
-                                       "11A", "13", "15A", "15B", "15C", "16F",
-                                       "17F", "18B", "19B", "20", "20B", "21",
-                                       "23A", "23B", "23B1",
-                                       "24B/C/F", "24F", "25B",
+                                       "10", "10A", "10B", "11A", "13",
+                                       "15A", "15B", "15C","15B/15C", "16F",
+                                       "17F", "18A", "18B", "19B", "20", "20B",
+                                       "21", "23A", "23B", "23B1",
+                                       "24F", "24B/C/F", "24B/24C/24F", "serogroup 24",
+                                       "25B", "25F",
                                        "28A", "31", "33B", "33G",
                                        "34", "35A", "35B", "35C", "35F", "37",
                                        "37F", "38", "39",
@@ -422,7 +880,8 @@ amr2 <- ggplot(amr_ser_long, aes(x = serotype_final_decision,
         legend.spacing.y = unit(-0.3, "cm"))
 
 
-png(file = "pictures/genData_amr_filterPneumo.png", width = 23, height = 25, unit = "cm", res = 600)
+png(file = "pictures/genData_amr_filterPneumo.png",
+    width = 29, height = 25, unit = "cm", res = 600)
 cowplot::plot_grid(amr1, amr2,
                    nrow = 2,
                    labels = c("A", "B"))
@@ -430,7 +889,7 @@ dev.off()
 
 
 
-# numeric AMR counts
+# numeric AMR counts ###########################################################
 df_amr_counts_summary <- df_epi_gen_pneumo %>% 
   dplyr::group_by(workWGS_AMR_logic_class_counts, serotype_final_decision) %>%
   dplyr::summarise(count = n()) %>% 
@@ -490,7 +949,7 @@ mdr1 <- ggplot(df_amr_counts_summary, aes(x = serotype_final_decision,
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.2, 0.75),
+        legend.position = c(0.22, 0.75),
         legend.direction = "vertical",
         legend.justification = c("left", "top"),
         legend.background = element_rect(fill = NA, color = NA),
@@ -574,7 +1033,7 @@ mdr2 <- ggplot(df_amr_mdr_summary, aes(x = serotype_final_decision,
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.02, 0.75),
+        legend.position = c(0.22, 0.75),
         legend.direction = "vertical",
         legend.justification = c("left", "top"),
         legend.background = element_rect(fill = NA, color = NA),
@@ -582,8 +1041,201 @@ mdr2 <- ggplot(df_amr_mdr_summary, aes(x = serotype_final_decision,
         legend.margin = margin(t = -50),
         legend.spacing.y = unit(-0.3, "cm"))
 
-png(file = "pictures/genData_mdr_filterPneumo.png", width = 23, height = 25, unit = "cm", res = 600)
+png(file = "pictures/genData_mdr_filterPneumo.png",
+    width = 29, height = 25, unit = "cm", res = 600)
 cowplot::plot_grid(mdr1, mdr2,
                    nrow = 2,
+                   rel_heights = c(1, 1.3),
                    labels = c("A", "B"))
+dev.off()
+
+
+# deep dive of MDR in area #####################################################
+area <- unique(df_epi_gen_pneumo$area)
+plotStore_area <- list()
+
+for(a in area){
+  plot <- df_epi_gen_pneumo %>%
+    dplyr::filter(area == a) %>% 
+    dplyr::group_by(workWGS_AMR_MDR_flag, serotype_final_decision) %>%
+    dplyr::summarise(count = n()) %>% 
+    dplyr::left_join(
+      df_epi_gen_pneumo %>% 
+        dplyr::filter(area == a) %>% 
+        dplyr::group_by(serotype_final_decision) %>%
+        dplyr::summarise(count_serotype = n())
+      ,
+      by = "serotype_final_decision"
+    ) %>% 
+    dplyr::mutate(
+      percentage = ifelse(workWGS_AMR_MDR_flag == "MDR",
+                          count/count_serotype*100,
+                          NA_real_),
+      y_pos = count_serotype
+    ) %>% 
+    dplyr::left_join(
+      df_epi_gen_pneumo %>%
+        dplyr::select(serotype_final_decision,
+                      serotype_classification_PCV13_final_decision) %>%
+        dplyr::mutate(
+          # slightly change classifications
+          serotype_classification_PCV13_final_decision = case_when(
+            serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+            TRUE ~ serotype_classification_PCV13_final_decision
+          ),
+          serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                levels = c("VT", "NVT", " "))
+        )
+      ,
+      by = "serotype_final_decision"
+    ) %>%
+    dplyr::distinct() %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = count,
+               fill = workWGS_AMR_MDR_flag)) +
+    # geom_line(size = 1.5) +
+    geom_bar(stat = "identity", position = position_stack()) +
+    # scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    geom_text(aes(x = serotype_final_decision,
+                  y = y_pos,
+                  label = ifelse(is.na(percentage),
+                                 NA,
+                                 paste0(round(percentage, 1), "%"))),
+              # position = position_stack(vjust = 1.3),
+              angle = 90,
+              # vjust = -3,
+              check_overlap = TRUE
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = " ", y = "Count", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          legend.position = "none",
+          legend.direction = "vertical",
+          legend.justification = c("left", "top"),
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_area[[a]] <- plot
+}
+
+
+png(file = "pictures/genData_mdr_filterPneumo_area.png",
+    width = 29, height = 46, unit = "cm", res = 600)
+cowplot::plot_grid(plotStore_area[[1]],
+                   plotStore_area[[3]],
+                   plotStore_area[[4]],
+                   plotStore_area[[2]],
+                   nrow = 4)
+dev.off()
+
+
+# deep dive of MDR in PCV13-implemented area ###################################
+vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
+                             "Not yet implemented area (Manado & Sorong)")
+plotStore_vaccArea <- list()
+
+for(a in vaccination_status_area){
+  plot <- df_epi_gen_pneumo %>%
+    dplyr::mutate(vaccination_status_area = case_when(
+      area == "lombok" |
+        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+    )
+    ) %>% 
+    dplyr::filter(vaccination_status_area == a) %>% 
+    dplyr::group_by(workWGS_AMR_MDR_flag, serotype_final_decision) %>%
+    dplyr::summarise(count = n()) %>% 
+    dplyr::left_join(
+      df_epi_gen_pneumo %>% 
+        dplyr::mutate(vaccination_status_area = case_when(
+          area == "lombok" |
+            area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+          TRUE ~ "Not yet implemented area (Manado & Sorong)"
+        )
+        ) %>% 
+        dplyr::filter(vaccination_status_area == a) %>% 
+        dplyr::group_by(serotype_final_decision) %>%
+        dplyr::summarise(count_serotype = n())
+      ,
+      by = "serotype_final_decision"
+    ) %>% 
+    dplyr::mutate(
+      percentage = ifelse(workWGS_AMR_MDR_flag == "MDR",
+                          count/count_serotype*100,
+                          NA_real_),
+      y_pos = count_serotype
+    ) %>% 
+    dplyr::left_join(
+      df_epi_gen_pneumo %>%
+        dplyr::select(serotype_final_decision,
+                      serotype_classification_PCV13_final_decision) %>%
+        dplyr::mutate(
+          # slightly change classifications
+          serotype_classification_PCV13_final_decision = case_when(
+            serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+            TRUE ~ serotype_classification_PCV13_final_decision
+          ),
+          serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
+                                                                levels = c("VT", "NVT", " "))
+        )
+      ,
+      by = "serotype_final_decision"
+    ) %>%
+    dplyr::distinct() %>% 
+    ggplot(.,
+           aes(x = serotype_final_decision,
+               y = count,
+               fill = workWGS_AMR_MDR_flag)) +
+    # geom_line(size = 1.5) +
+    geom_bar(stat = "identity", position = position_stack()) +
+    # scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    facet_grid(~ serotype_classification_PCV13_final_decision,
+               scales = "free_x",
+               space = "free_x"
+    ) +
+    geom_text(aes(x = serotype_final_decision,
+                  y = y_pos,
+                  label = ifelse(is.na(percentage),
+                                 NA,
+                                 paste0(round(percentage, 1), "%"))),
+              # position = position_stack(vjust = 1.3),
+              angle = 90,
+              # vjust = -3,
+              check_overlap = TRUE
+    ) +
+    scale_fill_manual(values = c(col_map)) +
+    labs(x = " ", y = "Count", 
+         # title = "All Serotypes"
+    ) +
+    theme_bw() +
+    ggtitle(a) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          legend.position = "none",
+          legend.direction = "vertical",
+          legend.justification = c("left", "top"),
+          legend.background = element_rect(fill = NA, color = NA),
+          legend.title = element_blank(),
+          legend.margin = margin(t = -50),
+          legend.spacing.y = unit(-0.3, "cm"))
+  
+  # redefine plots
+  plotStore_vaccArea[[a]] <- plot
+}
+
+png(file = "pictures/genData_mdr_filterPneumo_vaccArea.png",
+    width = 29, height = 23, unit = "cm", res = 600)
+cowplot::plot_grid(plotlist = plotStore_vaccArea,
+                   nrow = 2)
 dev.off()

@@ -8,74 +8,159 @@ library(tidyverse)
 # 49 "No Isolat" with joined <location ID> & <participat ID>
 # I manually edit these inconsistencies
 
-df_epi_manado <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver5.xlsx",
-                                    sheet = "Manado") %>% 
-  dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
-  dplyr::mutate(SPECIMEN_ID = gsub(" ", "_", SPECIMEN_ID),
-                area = "manado",
-                across(where(is.character), ~ na_if(., "N/A")),
-                across(where(is.character), ~ if_else(. == "-", "tidak", .)))
-# across(everything(), as.character),
-# across(everything(), tolower)) %>% 
-# dplyr::select(-contains("koding"),-contains("Ya="))
-
-# Detect duplicated IDs
-df_epi_manado_duplicated_ids <- df_epi_manado %>% 
-  dplyr::count(SPECIMEN_ID) %>% 
-  dplyr::mutate(category = case_when(
-    n == 2 ~ "Duplicated",
-    n == 3 ~ "Triplicated",
-    n == 4 ~ "Quadruplicated",
-    n > 4 ~ "More than Quadruplicated"
-  )) %>% 
-  dplyr::filter(n > 1) %>% 
-  # view() %>% 
+# extract specimen_id and area #################################################
+# combine previously compiled PW data
+# I manually edit 49 naming inconsistencies and duplicate values
+df_new <- readxl::read_excel("raw_data/Data WGS S. pneumoniae.xlsx",
+                             sheet = "Rekap Keseluruhan Baru") %>% 
+  dplyr::left_join(
+    read.csv("inputs/epiData_eng.csv") %>% 
+      dplyr::select(specimen_id, area) %>% 
+      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
+    ,
+    by = c("dc_id" = "workFasta_name")
+  ) %>% 
+  dplyr::filter(!is.na(area)) %>% 
+  glimpse()
+df_old1 <- readxl::read_excel("raw_data/Data WGS_Lombok_ver5.xlsx",
+                             sheet = "Sheet1") %>% 
+  dplyr::left_join(
+    read.csv("inputs/epiData_eng.csv") %>% 
+      dplyr::select(specimen_id, area) %>% 
+      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
+    ,
+    by = c("dc_id" = "workFasta_name")
+  ) %>% 
+  dplyr::filter(!is.na(area)) %>% 
+  glimpse()
+# currently sequenced, analysed with GPS pipeline (combined)
+genData_rfs <- readxl::read_excel("raw_data/genData_all_RFS.xlsx") %>% 
+  dplyr::filter(!str_detect(specimen_id, "_old|_invalid")) %>% 
+  # dplyr::anti_join(
+  #   df_gen_all
+  #   ,
+  #   by = "specimen_id"
+  # ) %>% 
+  dplyr::filter(!str_detect(specimen_id, "_old|_invalid")) %>% 
+  dplyr::transmute(
+    No = NA_real_,
+    `Process Date` = workWGS_process_date,
+    `No Isolat` = workWGS_no_isolat,
+    dc_id = paste0("Streptococcus_pneumoniae_", specimen_id),
+    `Organism name` = workWGS_species_pw,
+    `Genome length` = as.numeric(workWGS_genome_length),
+    `GC content` = workWGS_gc_content,
+    Serotype = workWGS_serotype,
+    `Sequence Type` = workWGS_MLST_pw_ST,
+    `GPSC Strain` = workWGS_gpsc_strain,
+    aroE = workWGS_MLST_pw_aroe,
+    gdh = workWGS_MLST_pw_gdh,
+    gki = workWGS_MLST_pw_gki,
+    recP = workWGS_MLST_pw_recp,
+    spi = workWGS_MLST_pw_spi,
+    xpt = workWGS_MLST_pw_xpt,
+    ddl = workWGS_MLST_pw_ddl,
+    PBP1a = workWGS_AMR_pbp1a,
+    PBP2b = workWGS_AMR_pbp2b,
+    PBP2x = workWGS_AMR_pbp2x,
+    Chloramphenicol = workWGS_AMR_chloramphenicol,
+    Clindamycin = workWGS_AMR_clindamycin,
+    Erythromycin = workWGS_AMR_erythromycin,
+    Fluoroquinolones = workWGS_AMR_fluoroquinolones,
+    Kanamycin = workWGS_AMR_kanamycin,
+    Linezolid = workWGS_AMR_linezolid,
+    Tetracycline = workWGS_AMR_tetracycline,
+    Trimethoprim = workWGS_AMR_trimethoprim,
+    Sulfamethoxazole = workWGS_AMR_sulfamethoxazole,
+    `Co-Trimoxazole` = workWGS_AMR_cotrimoxazole,
+    Amoxicillin = workWGS_AMR_amoxicillin,
+    Ceftriaxone = workWGS_AMR_ceftriaxone,
+    Cefotaxime = workWGS_AMR_cefotaxime,
+    Cefuroxime = workWGS_AMR_cefuroxime,
+    Meropenem = workWGS_AMR_meropenem,
+    Penicillin = workWGS_AMR_penicillin
+  ) %>% 
+  dplyr::left_join(
+    read.csv("inputs/epiData_eng.csv") %>% 
+      dplyr::select(specimen_id, area) %>% 
+      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
+    ,
+    by = c("dc_id" = "workFasta_name")
+  ) %>% 
+  dplyr::filter(!is.na(area)) %>% 
   glimpse()
 
-write.csv(df_epi_manado, "raw_data/temporary_df_epi_manado.csv",
-          row.names = F)
-
-df_epi_sorong <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver5.xlsx",
-                                    sheet = "Papua") %>% 
-  dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
-  dplyr::mutate(SPECIMEN_ID = gsub("-", "_", SPECIMEN_ID),
-                area = "sorong",
-                across(where(is.character), ~ na_if(., "N/A")),
-                across(where(is.character), ~ if_else(. == "-", "tidak", .)))
-# across(everything(), as.character),
-# across(everything(), tolower)) %>% 
-# dplyr::select(-contains("koding"),-contains("Ya="))
-
-# Detect duplicated IDs
-df_epi_sorong_duplicated_ids <- df_epi_sorong %>% 
-  dplyr::count(SPECIMEN_ID) %>% 
-  dplyr::mutate(category = case_when(
-    n == 2 ~ "Duplicated",
-    n == 3 ~ "Triplicated",
-    n == 4 ~ "Quadruplicated",
-    n > 4 ~ "More than Quadruplicated"
-  )) %>% 
-  dplyr::filter(n > 1) %>% 
-  # view() %>% 
+# remove weird column
+df_old1 <- df_old1 %>% select(-matches("^\\.\\.\\.")) %>% 
+  glimpse()
+final_df <- dplyr::bind_rows(
+  df_new,
+  df_old1,
+  genData_rfs
+  ) %>%
+  distinct(dc_id, .keep_all = TRUE) %>% 
   glimpse()
 
-write.csv(df_epi_sorong, "raw_data/temporary_df_epi_sorong.csv",
-          row.names = F)
-
-setdiff(names(df_epi_manado), names(df_epi_sorong))
-setdiff(names(df_epi_sorong), names(df_epi_manado))
-
-
-# just temporary extract specimen_id and area
 
 df_gen_all <- dplyr::right_join(
   read.csv("inputs/epiData_eng.csv") %>% 
     dplyr::select(specimen_id, area) %>% 
     dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
   ,  
-  # I manually edit 49 naming inconsistencies and analyse LBK_137 from contigs
-  readxl::read_excel("raw_data/Data WGS S. pneumoniae.xlsx",
-                     sheet = "Rekap Keseluruhan Baru") %>% 
+  dplyr::bind_rows(
+    final_df
+    ,
+      dplyr::bind_rows(
+        # currently sequenced data (31/10/2025)
+        dplyr::bind_rows(
+          read.csv("raw_data/results_SOQ.csv") %>% 
+            dplyr::mutate(across(everything(), as.character))
+          ,
+          read.csv("raw_data/results.csv") %>%
+            dplyr::filter(!stringr::str_detect(Sample_ID, "_SWB_")) %>%  # SWB is hospital data
+            dplyr::mutate(across(everything(), as.character))
+        ) %>% 
+          dplyr::transmute(
+            No = NA_integer_,
+            `Process Date` = as.character("30/10/2025"),
+            `No Isolat` = NA_character_,
+            dc_id = paste0("Streptococcus_penumoniae_", Sample_ID),
+            `Organism name` = ifelse(S.Pneumo_. >= 50, "Streptococcus pneumoniae",
+                                     "others"),
+            `Genome length` = as.double(Assembly_Length),
+            `GC content` = NA_character_,
+            Serotype = Serotype,
+            `Sequence Type` = ST,
+            `GPSC Strain` = GPSC,
+            aroE = aroE,
+            gdh = gdh,
+            gki = gki,
+            recP = recP,
+            spi = spi,
+            xpt = xpt,
+            ddl = ddl,
+            PBP1a = pbp1a,
+            PBP2b = pbp2b,
+            PBP2x = pbp2x,
+            Chloramphenicol = CHL_Res,
+            Clindamycin = CLI_Res,
+            Erythromycin = ERY_Res,
+            Fluoroquinolones = FQ_Res,
+            Kanamycin = KAN_Res,
+            Linezolid = NA_character_,
+            Tetracycline = TET_Res,
+            Trimethoprim = TMP_Res,
+            Sulfamethoxazole = SMX_Res,
+            `Co-Trimoxazole` = COT_Res,
+            Amoxicillin = AMO_Res,
+            Ceftriaxone = CFT_Res.Non.meningital.,
+            Cefotaxime = TAX_Res.Non.meningital.,
+            Cefuroxime = CFX_Res,
+            Meropenem = MER_Res,
+            Penicillin = PEN_Res.Non.meningital.
+          )
+      )
+  ) %>% 
     dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
     dplyr::rename_with(~ tolower(gsub("[^[:alnum:]_]", "", .x))) %>% 
     dplyr::rename_all(~ paste0("workWGS_", .)) %>% 
@@ -155,6 +240,14 @@ df_gen_all <- dplyr::right_join(
         str_detect(.x, "folai100|folai100l") ~ "R (folA_I100L)",
         str_detect(.x, "folpaainsert5770") ~ "R (folP_57-70)",
         str_detect(.x, "folpaainsert5771") ~ "R (folP_57-71)",
+        
+        # newly generated data from GPS pipeline
+        str_detect(.x, "resistantcatq") ~ "R (cat_q)",
+        str_detect(.x, "rmefa") ~ "R (mefA_10)",
+        str_detect(.x, "rtetm5") ~ "R (tetM_5)",
+        str_detect(.x, "rtetm") ~ "R (tetM)",
+        str_detect(.x, "resistanttet32") ~ "R (tet_32)",
+        str_detect(.x, "rfolp5770") ~ "R (folP_57-70)",
         TRUE ~ .x
       ))
     ) %>% 
@@ -162,16 +255,23 @@ df_gen_all <- dplyr::right_join(
       .cols = contains("_AMR_"),
       .fns = ~ case_when(
         # relabel
-        str_to_lower(.x) == "sensitive" ~ "S",
-        str_to_lower(.x) == "resistant" ~ "R",
-        str_to_lower(.x) == "intermediate" ~ "I",
+        str_to_lower(.x) == "sensitive" |
+          str_to_lower(.x) == "s" ~ "S",
+        str_to_lower(.x) == "resistant" |
+          str_to_lower(.x) == "r" ~ "R",
+        str_to_lower(.x) == "intermediate"  |
+          str_to_lower(.x) == "i" ~ "I",
         str_to_lower(.x) %in% c("none", "nf", "nfnf", "-", "", "null", "null/null", "nf/nf", "nfnull/null") ~ "NF",
         
         # compound mappings
-        str_to_lower(.x) == "sensitive/intermediate" ~ "S/I",
-        str_to_lower(.x) == "sensitive/resistant" ~ "S/R",
-        str_to_lower(.x) == "intermediate/resistant" ~ "I/R",
-        str_to_lower(.x) == "sensitive/sensitive" ~ "S/S",
+        str_to_lower(.x) == "sensitive/intermediate" |
+          str_to_lower(.x) == "s/i"~ "S/I",
+        str_to_lower(.x) == "sensitive/resistant"  |
+          str_to_lower(.x) == "s/r"~ "S/R",
+        str_to_lower(.x) == "intermediate/resistant"  |
+          str_to_lower(.x) == "i/r"~ "I/R",
+        str_to_lower(.x) == "sensitive/sensitive"  |
+          str_to_lower(.x) == "s/s"~ "S/S",
         
         # prefix mutation
         # str_detect(.x, "\\(") & !str_detect(.x, "^R \\(") ~ paste0("R ", .x),
@@ -232,14 +332,14 @@ df_gen_all <- dplyr::right_join(
         TRUE ~ "NF"
       ),
       # define MDR flag
-      workWGS_AMR_logic_class_amphenicols = str_detect(workWGS_AMR_chloramphenicol, "^R"),
-      workWGS_AMR_logic_class_lincosamides = str_detect(workWGS_AMR_clindamycin, "^R"),
-      workWGS_AMR_logic_class_macrolides = str_detect(workWGS_AMR_erythromycin, "^R"),
-      workWGS_AMR_logic_class_quinolones = str_detect(workWGS_AMR_fluoroquinolones, "^R"),
-      workWGS_AMR_logic_class_aminoglycosides = str_detect(workWGS_AMR_kanamycin, "^R"),
-      workWGS_AMR_logic_class_oxazolidinones = str_detect(workWGS_AMR_linezolid, "^R"),
-      workWGS_AMR_logic_class_tetracyclines = str_detect(workWGS_AMR_tetracycline, "^R"),
-      workWGS_AMR_logic_class_carbapenems = str_detect(workWGS_AMR_meropenem, "^R"),
+      workWGS_AMR_logic_class_chloramphenicol = str_detect(workWGS_AMR_chloramphenicol, "^R"),
+      workWGS_AMR_logic_class_clindamycin = str_detect(workWGS_AMR_clindamycin, "^R"),
+      workWGS_AMR_logic_class_erythromycin = str_detect(workWGS_AMR_erythromycin, "^R"),
+      workWGS_AMR_logic_class_fluoroquinolones = str_detect(workWGS_AMR_fluoroquinolones, "^R"),
+      workWGS_AMR_logic_class_kanamycin = str_detect(workWGS_AMR_kanamycin, "^R"),
+      workWGS_AMR_logic_class_linezolid = str_detect(workWGS_AMR_linezolid, "^R"),
+      workWGS_AMR_logic_class_tetracycline = str_detect(workWGS_AMR_tetracycline, "^R"),
+      workWGS_AMR_logic_class_meropenem = str_detect(workWGS_AMR_meropenem, "^R"),
       
       workWGS_AMR_logic_class_cephalosporins = str_detect(workWGS_AMR_class_cephalosporins, "^R"),
       workWGS_AMR_logic_class_penicillins = str_detect(workWGS_AMR_class_penicillins, "^R"),    
@@ -249,6 +349,7 @@ df_gen_all <- dplyr::right_join(
       workWGS_AMR_MDR_flag = case_when(
         workWGS_AMR_logic_class_counts >= 3 ~ "MDR",
         workWGS_AMR_logic_class_counts >= 0 ~ "non-MDR",
+        # workWGS_AMR_logic_class_counts == 0 ~ "non-AMR",
         TRUE ~ NA_character_
       )
     )
@@ -259,22 +360,25 @@ df_gen_all <- dplyr::right_join(
   dplyr::mutate(
     serotype_final_decision = case_when(
       workWGS_serotype == "03" ~ "3",
-      workWGS_serotype == "06A" ~ "6A",
+      workWGS_serotype == "06A" |
+        workWGS_serotype == "06A(06A-III)" ~ "6A",
       workWGS_serotype == "06B" ~ "6B",
       workWGS_serotype == "6E(6B)" ~ "6B",
       workWGS_serotype == "06C" ~ "6C",
       workWGS_serotype == "06C" ~ "6C",
       workWGS_serotype == "07C" ~ "7C",
+      workWGS_serotype == "10X" ~ "33G",
+      workWGS_serotype == "19F(19AF)" ~ "19F",
       workWGS_serotype == "untypable" | 
         workWGS_serotype == "untypeable" |
         workWGS_serotype == "Untypable" |
-        workWGS_serotype == "10X" |
+        workWGS_serotype == "_" |
         workWGS_serotype == "Swiss_NT" |
         workWGS_serotype == "alternative_aliB_NT" |
         workWGS_serotype == "NCC1_pspK_NESp" |
         workWGS_serotype == "NCC1_pspK_non_encapsulated" ~ "nontypeable",
-      workWGS_serotype == "serogroup 24" ~ "24F",
-      workWGS_serotype == "24B/24C/24F" ~ "24B/C/F",
+      workWGS_serotype == "24B/24C/24F" ~ "serogroup 24",
+      is.na(workWGS_serotype) ~ NA,
       TRUE ~ workWGS_serotype
     )
     # serotype_final_decision = case_when(
@@ -295,6 +399,7 @@ df_gen_all <- dplyr::right_join(
                                      "6A", "6B", "9V", "14", "18C",
                                      "19A", "19F", "23F") ~ "VT",
       serotype_final_decision == "nontypeable" ~ "nontypeable",
+      is.na(serotype_final_decision) ~ NA,
       TRUE ~ "NVT"
     ),
     serotype_classification_PCV15_final_decision = case_when(
@@ -303,24 +408,38 @@ df_gen_all <- dplyr::right_join(
                                      "19A", "19F", "23F",
                                      "22F", "33F") ~ "VT",
       serotype_final_decision == "nontypeable" ~ "nontypeable",
+      is.na(serotype_final_decision) ~ NA,
       TRUE ~ "NVT"
     )
   ) %>% 
+  # test duplicates
+  # group_by(workFasta_name) %>% 
+  # summarise(count = n()) %>%
+  # filter(count > 1) %>%
+  distinct(specimen_id, .keep_all = T) %>% 
   glimpse()
 
-# test serotype list for factors
+
+# test serotype list for factors ###############################################
 df_gen_all %>% 
+  filter(workWGS_species_pw == "Streptococcus pneumoniae") %>% 
   dplyr::select(workWGS_serotype,
                 serotype_final_decision,
                 serotype_classification_PCV13_final_decision) %>% 
-  # view() %>% 
+  view() %>% 
   glimpse()
 
 # sanity check for area and species
 df_gen_all %>% 
-  filter(!is.na(workWGS_species_pw)) %>% 
+  # filter(!is.na(workWGS_species_pw)) %>% 
   group_by(area) %>% 
   summarise(count = n()) %>% 
+  glimpse()
+
+df_gen_all %>%
+  filter(workWGS_species_pw == "Streptococcus pneumoniae") %>%
+  group_by(area) %>%
+  summarise(count = n()) %>%
   glimpse()
 
 df_gen_all %>% 
@@ -329,6 +448,7 @@ df_gen_all %>%
   # view() %>% 
   glimpse()
 
+# store genData_old.csv & rewrite genData_all.csv 
 write.csv(df_gen_all, "inputs/genData_all.csv", row.names = F)
 
 
@@ -341,6 +461,12 @@ df_epi_gen_pneumo <- dplyr::left_join(
   ,
   by = "specimen_id"
 ) %>% 
+  dplyr::left_join(
+    read.csv("inputs/workLab_data.csv") %>% 
+      dplyr::select(specimen_id, final_pneumo_decision)
+    ,
+    by = "specimen_id"
+  ) %>% 
   dplyr::distinct(specimen_id, .keep_all = T) %>% # check duplicated IDs in genData
   glimpse()
 

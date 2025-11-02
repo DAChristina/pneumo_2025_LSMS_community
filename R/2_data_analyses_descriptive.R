@@ -2,64 +2,60 @@ library(tidyverse)
 source("global/fun.R")
 
 # Data analyses process for epiData ############################################
-df_epi <- read.csv("inputs/epiData_with_final_pneumo_decision.csv") %>% 
-  dplyr::select(-specimen_id) %>% 
+df_epi <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
+  dplyr::select(-contains("workWGS_"),-specimen_id) %>% 
   # conduct corrections for supposedly NUMERICAL and FACTOR (not ordered) columns!
   dplyr::mutate(
     age_month = as.numeric(age_month),
     age_year = as.numeric(age_year),
-    nTotal_people = as.numeric(nTotal_people),
-    nTotal_child_5yo_andBelow = as.numeric(nTotal_child_5yo_andBelow),
-    n_child_1yo_andBelow = as.numeric(n_child_1yo_andBelow),
-    n_child_1to2yo = as.numeric(n_child_1to2yo),
-    n_child_2to4yo = as.numeric(n_child_2to4yo),
-    nTotal_child_5yo_andBelow_sleep = as.numeric(nTotal_child_5yo_andBelow_sleep),
-    illness_past3days_fever_nDays_regroup = as.numeric(illness_past3days_fever_nDays_regroup),
-    hospitalised_last_3mo_n = as.numeric(hospitalised_last_3mo_n),
-    healthcareVisit_last_3mo_n = as.numeric(healthcareVisit_last_3mo_n), # 1 "unknown" is replaced as NA
-    # healthcareVisit_last_3mo_n = dplyr::na_if(healthcareVisit_last_3mo_n, "unknown")
-    
-    vaccination_hibpentavalent_dc_n = as.numeric(vaccination_hibpentavalent_dc_n),
-    vaccination_pcv13_dc_n = as.numeric(vaccination_pcv13_dc_n),
     area = as.factor(area),
     sex = as.factor(sex),
     tribe = as.factor(tribe),
-    breastMilk_given = as.factor(breastMilk_given),
-    breastMilk_still_being_given = as.factor(breastMilk_still_being_given),
-    breastFeed_compiled = as.factor(breastFeed_compiled),
     contact_kindergarten = as.factor(contact_kindergarten),
     contact_otherChildren = as.factor(contact_otherChildren),
     contact_cigarettes = as.factor(contact_cigarettes),
     contact_cooking_fuel = as.factor(contact_cooking_fuel),
     contact_cooking_place = as.factor(contact_cooking_place),
-    house_building_regroup = as.factor(house_building_regroup),
+    breastFeed_compiled = as.factor(breastFeed_compiled),
     house_roof_regroup = as.factor(house_roof_regroup),
+    house_building_regroup = as.factor(house_building_regroup),
     house_window_regroup = as.factor(house_window_regroup),
-    hospitalised_last_3mo = as.factor(hospitalised_last_3mo),
-    healthcareVisit_last_3mo = as.factor(healthcareVisit_last_3mo),
-    illness_past3days_fever_regroup = as.factor(illness_past3days_fever_regroup),
-    illness_past24h_cough = as.factor(illness_past24h_cough),
-    illness_past24h_runny_nose = as.factor(illness_past24h_runny_nose),
-    illness_past24h_difficulty_breathing = as.factor(illness_past24h_difficulty_breathing),
-    illness_past24h_difficulty_compiled = as.factor(illness_past24h_difficulty_compiled),
-    antibiotic_past3days = as.factor(antibiotic_past3days),
-    antibiotic_past1mo = as.factor(antibiotic_past1mo),
-    age_year_2groups = factor(age_year_2groups,
-                              levels = c("1 and below", "more than 1")),
-    age_year_3groups = factor(age_year_3groups,
-                           levels = c("1 and below", "1-2", "3-5")),
     nTotal_people_regroup = factor(nTotal_people_regroup,
                                    levels = c("1-3 (low)", "4-6 (moderate)", ">6 (high)")),
     nTotal_child_5yo_andBelow_regroup = factor(nTotal_child_5yo_andBelow_regroup,
                                                levels = c("0", "1-4")),
     nTotal_child_5yo_andBelow_sleep_regroup = factor(nTotal_child_5yo_andBelow_sleep_regroup,
                                                      levels = c("0", "1-3")),
+    illness_past3days_fever_regroup = as.factor(illness_past3days_fever_regroup),
+    illness_past3days_fever_nDays_regroup = as.numeric(illness_past3days_fever_nDays_regroup),
+    illness_past24h_cough = as.factor(illness_past24h_cough),
+    illness_past24h_runny_nose = as.factor(illness_past24h_runny_nose),
+    illness_past24h_difficulty_breathing = as.factor(illness_past24h_difficulty_breathing),
+    illness_past24h_difficulty_compiled = as.factor(illness_past24h_difficulty_compiled),
     vaccination_hibpentavalent_dc_n_regroup = factor(vaccination_hibpentavalent_dc_n_regroup,
-                                            levels = c("1-3 mandatory", "4 booster")),
+                                                     levels = c("1-3 (mandatory)", "4 (booster)")),
     vaccination_pcv13_dc_n_regroup = factor(vaccination_pcv13_dc_n_regroup,
-                                            levels = c("1-2 mandatory", "3-4 booster")),
+                                            levels = c("0 (not yet)", "1-2 (mandatory)", "3-4 (booster)")),
+    healthcareVisit_last_3mo = as.factor(healthcareVisit_last_3mo),
+    hospitalised_last_3mo = as.factor(hospitalised_last_3mo),
+    antibiotic_past3days = as.factor(antibiotic_past3days),
+    
+    # age_year_2groups = factor(age_year_2groups,
+    #                           levels = c("1 and below", "more than 1")),
+    
+    
     final_pneumo_decision = factor(final_pneumo_decision,
                                    levels = c("negative", "positive"))
+  ) %>% 
+  dplyr::mutate(
+    age_year_3groups = case_when(
+      age_month < 13 ~ "≤1",
+      age_month >= 13 & age_month < 25 ~ "1-2",
+      age_month >= 25 & age_month < 61 ~ "3-5",
+    ),
+    
+    age_year_3groups = factor(age_year_3groups,
+                              levels = c("≤1", "1-2", "3-5")),
   ) %>% 
   glimpse()
 
@@ -205,8 +201,6 @@ df_epi_sorted <- df_epi %>%
                 hospitalised_last_3mo,
                 contains("house"),
                 contains("illness"),
-                -illness_past3days_fever,
-                -illness_past3days_fever_nDays,
                 contains("n_child"),
                 nTotal_child_5yo_andBelow_regroup,
                 nTotal_child_5yo_andBelow_sleep_regroup,
@@ -498,23 +492,23 @@ kruskal.test(percentage ~ area,
              data = df_serotype_classification_perArea_summary)
 
 
-# chi-square or fisher test
-contingency_table <- df_serotype_classification_perArea_summary %>% 
-  dplyr::select(-percentage) %>%
-  tidyr::pivot_wider(names_from = area, values_from = n) %>%
-  dplyr::mutate(across(c(lombok, sumbawa), as.numeric)) %>%
-  tibble::column_to_rownames("serotype_classification_PCV13_final_decision") %>%
-  as.matrix()
-
-# View the contingency table
-print(contingency_table)
-
-# Run the Chi-square test
-test_chisq <- chisq.test(contingency_table)
-test_chisq$p.value
-test_fisher <- fisher.test(contingency_table)
-
-# conflicted KW-chisq results
+# # chi-square or fisher test
+# contingency_table <- df_serotype_classification_perArea_summary %>% 
+#   dplyr::select(-percentage) %>%
+#   tidyr::pivot_wider(names_from = area, values_from = n) %>%
+#   dplyr::mutate(across(c(lombok, sumbawa), as.numeric)) %>%
+#   tibble::column_to_rownames("serotype_classification_PCV13_final_decision") %>%
+#   as.matrix()
+# 
+# # View the contingency table
+# print(contingency_table)
+# 
+# # Run the Chi-square test
+# test_chisq <- chisq.test(contingency_table)
+# test_chisq$p.value
+# test_fisher <- fisher.test(contingency_table)
+# 
+# # conflicted KW-chisq results
 
 
 

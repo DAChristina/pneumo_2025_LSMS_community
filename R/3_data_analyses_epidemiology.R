@@ -5,8 +5,6 @@ df_epi <- read.csv("inputs/epiData_with_final_pneumo_decision.csv") %>%
   dplyr::select(-specimen_id) %>% 
   # conduct corrections for supposedly NUMERICAL and FACTOR (not ordered) columns!
   dplyr::mutate(
-    age_month = as.numeric(age_month),
-    age_year = as.numeric(age_year),
     nTotal_people = as.numeric(nTotal_people),
     nTotal_child_5yo_andBelow = as.numeric(nTotal_child_5yo_andBelow),
     n_child_1yo_andBelow = as.numeric(n_child_1yo_andBelow),
@@ -23,9 +21,6 @@ df_epi <- read.csv("inputs/epiData_with_final_pneumo_decision.csv") %>%
     area = as.factor(area),
     sex = as.factor(sex),
     tribe = as.factor(tribe),
-    breastMilk_given = as.factor(breastMilk_given),
-    breastMilk_still_being_given = as.factor(breastMilk_still_being_given),
-    breastFeed_compiled = as.factor(breastFeed_compiled),
     contact_kindergarten = as.factor(contact_kindergarten),
     contact_otherChildren = as.factor(contact_otherChildren),
     contact_cigarettes = as.factor(contact_cigarettes),
@@ -47,7 +42,10 @@ df_epi <- read.csv("inputs/epiData_with_final_pneumo_decision.csv") %>%
     age_year_2groups = factor(age_year_2groups,
                               levels = c("1 and below", "more than 1")),
     age_year_3groups = factor(age_year_3groups,
-                              levels = c("1 and below", "1-2", "3-5")),
+                              levels = c("< 1 year old",
+                                         "1-2 years old",
+                                         "3-5 years old")),
+    
     nTotal_people_regroup = factor(nTotal_people_regroup,
                                    levels = c("1-3 (low)", "4-6 (moderate)", ">6 (high)")),
     nTotal_child_5yo_andBelow_regroup = factor(nTotal_child_5yo_andBelow_regroup,
