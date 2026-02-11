@@ -381,22 +381,11 @@ df_gen_all <- dplyr::right_join(
       is.na(workWGS_serotype) ~ NA,
       TRUE ~ workWGS_serotype
     )
-    # serotype_final_decision = case_when(
-    #   serotype_final_decision == "35A/35C/42" ~ "35C",
-    #   serotype_final_decision == "serogroup 6" ~ "6B",
-    #   serotype_final_decision == "serogroup 24" ~ "24F",
-    #   serotype_final_decision == "10X" ~ "nontypeable",
-    #   serotype_final_decision == "Swiss_NT" ~ "nontypeable",
-    #   workWGS_serotype == "untypable" ~ "nontypeable",
-    #   workWGS_serotype == "21" ~ "21",
-    #   serotype_final_decision == "15B/15C" ~ "15C",
-    #   TRUE ~ serotype_final_decision
-    # )
   ) %>% 
   dplyr::mutate(
     serotype_classification_PCV13_final_decision = case_when(
       serotype_final_decision %in% c("1", "3", "4", "5", "7F",
-                                     "6A", "6B", "9V", "14", "18C",
+                                     "6A", "6B", "6C", "9V", "14", "18C",
                                      "19A", "19F", "23F") ~ "VT",
       serotype_final_decision == "nontypeable" ~ "nontypeable",
       is.na(serotype_final_decision) ~ NA,
@@ -417,7 +406,72 @@ df_gen_all <- dplyr::right_join(
   # summarise(count = n()) %>%
   # filter(count > 1) %>%
   distinct(specimen_id, .keep_all = T) %>% 
+  
+  # check all available contigs & missing WGS files
+  dplyr::full_join(
+    read.csv("raw_data/all_fasta_contigs_compiled.csv", header = F) %>% 
+      dplyr::rename(workContigs_name = V1) %>% 
+      dplyr::mutate(specimen_id = stringr::str_remove(workContigs_name,
+                                                      ".fasta"),
+                    workContigs_report = "available with DC")
+      ,
+    by = "specimen_id"
+  ) %>% 
+  # check all available alignments
+  dplyr::full_join(
+    read.csv("raw_data/all_fasta_alignments_compiled.csv", header = F) %>% 
+      dplyr::rename(workAlignments_name = V1) %>% 
+      dplyr::mutate(specimen_id = stringr::str_remove(workAlignments_name,
+                                                      ".fasta"),
+                    workAlignments_report = "available with DC")
+    ,
+    by = "specimen_id"
+  ) %>% 
+  dplyr::mutate(
+    workContigs_report = case_when(
+      is.na(workContigs_report) &
+        workAlignments_report == "available with DC"
+      ~ "but alignments available",
+      TRUE ~ workContigs_report
+      )
+    ) %>% 
+  dplyr::select(-area) %>% 
+  # rejoined by area
+  dplyr::left_join(
+    read.csv("inputs/epiData_eng.csv") %>% 
+      dplyr::select(specimen_id, area)
+    ,
+    by = "specimen_id"
+  ) %>% 
+  dplyr::left_join(
+    read.csv("inputs/blastData_all.csv")
+    ,
+    by = c("specimen_id" = "file_name")
+  ) %>%
   glimpse()
+
+# check unavailable contigs IDs (fasta alignment available)
+df_gen_all %>% 
+  dplyr::filter(is.na(workContigs_report)) %>% 
+  dplyr::select(-contains("AMR")) %>% 
+  # view() %>% 
+  glimpse()
+
+# check species final decision
+df_gen_all %>% 
+  dplyr::select(specimen_id,
+                workWGS_species_pw,
+                workBLAST_species_decision,
+                workWGS_serotype,
+                serotype_final_decision
+                ) %>% 
+  # view() %>%
+  glimpse()
+
+# For generating tree, I use prokka (*.gff) --> panaroo (*.aln) --> RAxML
+# We can use the *.gff files of 96 alignment files generated from ASA3P.
+
+# But BLAST analyses keep using contigs and alignment files.
 
 
 # test serotype list for factors ###############################################
@@ -426,7 +480,7 @@ df_gen_all %>%
   dplyr::select(workWGS_serotype,
                 serotype_final_decision,
                 serotype_classification_PCV13_final_decision) %>% 
-  view() %>% 
+  # view() %>% 
   glimpse()
 
 # sanity check for area and species
@@ -456,14 +510,19 @@ write.csv(df_gen_all, "inputs/genData_all.csv", row.names = F)
 df_epi_gen_pneumo <- dplyr::left_join(
   read.csv("inputs/epiData_eng.csv")
   ,
-  read.csv("inputs/genData_all.csv") %>% 
-    dplyr::select(-area)
+  read.csv("inputs/workLab_data.csv") %>% 
+    dplyr::select(specimen_id,
+                  labWork_status,
+                  workBLAST_species_decision,
+                  final_pneumo_decision)
   ,
   by = "specimen_id"
 ) %>% 
   dplyr::left_join(
-    read.csv("inputs/workLab_data.csv") %>% 
-      dplyr::select(specimen_id, final_pneumo_decision)
+    read.csv("inputs/genData_all.csv") %>% 
+      dplyr::select(-area,
+                    -workBLAST_species_decision
+      )
     ,
     by = "specimen_id"
   ) %>% 

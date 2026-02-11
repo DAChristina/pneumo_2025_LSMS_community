@@ -22,7 +22,8 @@ df_epi_lombok_duplicated_ids <- df_epi_lombok %>%
     n == 4 ~ "Quadruplicated",
     n > 4 ~ "More than Quadruplicated"
   )) %>% 
-  view()
+  # view() %>% 
+  glimpse()
 
 write.csv(df_epi_lombok, "raw_data/temporary_df_epi_lombok.csv",
           row.names = F)
@@ -120,7 +121,7 @@ setdiff(names(df_epi_sorong), names(df_epi_manado))
 # In the end, I manually merge Manado & Sorong dfs Column differences occur with
 # various values including shifted columns Do not trust coded columns & the "how
 # many vaccination" columns (they were manually coded). I can't trust n
-# vaccination columns because there are date columns available; I manually
+# vaccination columns because date columns available; I manually
 # corrected n vaccination calculations.
 
 # I manually inspect NA values based on data types (numeric & categorical) and
@@ -153,7 +154,9 @@ df_epi_merged_summarise <- df_epi_merged %>%
 # I conducted manual data cleaning for inputted values
 # then, pick some interesting columns to be analysed
 df_epi_clean <- df_epi_merged %>% 
-  dplyr::select(specimen_id, s_pneumoniae_suspect_culture_colony,
+  dplyr::select(specimen_id,
+                apakah_anda_sudah_mendapat_penjelasan_terkait_penelitian_ini_dan_sudah_menandatangani_surat_persetujuan_yang_menyatakan_persetujuan_anda_untuk_mengizinkan_kami_mengumpulkan_data_dan_spesimen_dari_anak_anda,
+                s_pneumoniae_suspect_culture_colony,
                 optochin, s_pneumoniae_culture_result, wgs_result11, wgs_result12,
                 serotype_wgs, # will be modified to VTs and NVTs
                 age_month, # will be modified soon and classified according to some ageGroups
@@ -240,6 +243,7 @@ df_epi_clean <- df_epi_merged %>%
   ) %>% 
   # rename epiData
   dplyr::rename(
+    consent = apakah_anda_sudah_mendapat_penjelasan_terkait_penelitian_ini_dan_sudah_menandatangani_surat_persetujuan_yang_menyatakan_persetujuan_anda_untuk_mengizinkan_kami_mengumpulkan_data_dan_spesimen_dari_anak_anda,
     sex = jenis_kelamin,
     tribe = suku,
     workLab_culture_suspect = s_pneumoniae_suspect_culture_colony,
@@ -352,12 +356,15 @@ df_epi_clean <- df_epi_merged %>%
       TRUE ~ "≥ 1 respiratory illness",
     ),
     vaccination_hibpentavalent_dc_n_regroup = case_when(
-      vaccination_hibpentavalent_dc_n < 4 ~ "1-3 mandatory",
+      vaccination_hibpentavalent_dc_n == 0 ~ "0 not yet",
+      vaccination_hibpentavalent_dc_n >= 1 & 
+        vaccination_hibpentavalent_dc_n <= 3 ~ "1-3 mandatory",
       vaccination_hibpentavalent_dc_n >= 4 ~ "4 booster"
     ),
     vaccination_pcv13_dc_n_regroup = case_when(
       vaccination_pcv13_dc_n == 0 ~ "0 not yet",
-      vaccination_pcv13_dc_n < 3 ~ "1-2 mandatory",
+      vaccination_pcv13_dc_n >= 1 & 
+        vaccination_pcv13_dc_n <= 2 ~ "1-2 mandatory",
       vaccination_pcv13_dc_n >= 3 ~ "3-4 booster"
     )
   ) #%>% 
@@ -395,7 +402,7 @@ cols_with_na_sums <- df_epi_coded %>%
                       names_to = "columns", values_to = "NAs") %>% 
   dplyr::filter(!str_detect(columns, "work"),
                 NAs != 0)
-view(cols_with_na_sums)
+# view(cols_with_na_sums)
 
 get_mmm <- function(x) {
   mea_v <- mean(x, na.rm = TRUE)
@@ -428,10 +435,11 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
   ) %>% 
   dplyr::transmute(
     specimen_id = specimen_id,
+    consent = consent,
     age_month = age_month,
     age_year = age_year,
     age_year_3groups = age_year_3groups,
-    area = area,
+    area = str_replace(area, "^[a-z]", str_to_upper),
     sex = case_when(
       sex == "laki-laki" ~ "male",
       TRUE ~ "female"
@@ -458,11 +466,11 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
       breastMilk_given == "no" & breastMilk_still_being_given == "no" ~ "never breastfeed"
     ),
     house_roof_regroup = case_when(
-      house_roof %in% c("batako", "beton", "genteng logam", "daun palem", "jerami") ~ "others",
+      house_roof %in% c("batako", "beton", "genteng logam",
+                        "daun palem", "jerami", "kayu") ~ "others", # too small sample size (< 10)
       house_roof == "asbes" ~ "asbestos",
       house_roof == "genteng" ~ "clay tile",
       house_roof == "seng" ~ "metal sheet",
-      house_roof == "kayu" ~ "wood",
       TRUE ~ house_roof # spandek is spandek
     ),
     house_building_regroup = case_when(
@@ -517,13 +525,16 @@ df_epi_coded_eng <- read.csv("inputs/epiData.csv") %>%
       TRUE ~ "≥ 1 respiratory illness",
     ),
     vaccination_hibpentavalent_dc_n_regroup = case_when(
-      vaccination_hibpentavalent_dc_n < 4 ~ "1-3 (mandatory)",
-      vaccination_hibpentavalent_dc_n >= 4 ~ "4 (booster)"
+      vaccination_hibpentavalent_dc_n == 0 ~ "0 not yet",
+      vaccination_hibpentavalent_dc_n >= 1 ~ "vaccinated"
+        # vaccination_hibpentavalent_dc_n <= 3 ~ "1-3 mandatory",
+      # vaccination_hibpentavalent_dc_n >= 4 ~ "4 booster"
     ),
     vaccination_pcv13_dc_n_regroup = case_when(
-      vaccination_pcv13_dc_n == 0 ~ "0 (not yet)",
-      vaccination_pcv13_dc_n < 3 ~ "1-2 (mandatory)",
-      vaccination_pcv13_dc_n >= 3 ~ "3-4 (booster)"
+      vaccination_pcv13_dc_n == 0 ~ "0 not yet",
+      vaccination_pcv13_dc_n >= 1 & 
+        vaccination_pcv13_dc_n <= 2 ~ "1-2 mandatory",
+      vaccination_pcv13_dc_n >= 3 ~ "3-4 booster"
     ),
     # mode imputation because > 1% missing values (n_max = 12)
     healthcareVisit_last_3mo = healthcareVisit_last_3mo,

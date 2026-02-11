@@ -4,6 +4,7 @@ source("global/fun.R")
 
 # epi vaccination coverage #####################################################
 df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>% 
+  dplyr::filter(consent == "yes") %>% 
   dplyr::group_by(area, vaccination_pcv13_dc_n_regroup) %>% 
   dplyr::summarise(count_nvac = n()) %>%
   dplyr::left_join(
@@ -15,8 +16,8 @@ df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>%
   ) %>% 
   dplyr::mutate(percentage = round(count_nvac / count_area * 100, 1),
                 area = factor(area,
-                              levels = c("lombok", "sumbawa",
-                                         "manado", "sorong"))
+                              levels = c("Lombok", "Sumbawa",
+                                         "Manado", "Sorong"))
                 ) %>%
   dplyr::arrange(desc(percentage)) %>% 
   # dplyr::transmute(
@@ -35,12 +36,12 @@ df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>%
             position = position_dodge(width = 1)) +
   scale_y_continuous(labels = scales::percent_format(scale = 1)) +
   scale_fill_manual(values = c(col_map)) +
-  labs(x = "PCV13 vaccination", y = "Percentage", 
+  labs(x = "PCV13 Vaccination", y = "Percentage", 
        # title = "All Serotypes"
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
-        legend.position = c(0.02, 0.75),
+        legend.position = "none", # legend.position = c(0.02, 0.75),
         legend.direction = "vertical",
         legend.justification = c("left", "top"),
         legend.background = element_rect(fill = NA, color = NA),
@@ -48,12 +49,24 @@ df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>%
         legend.margin = margin(t = -50),
         legend.spacing.y = unit(-0.3, "cm")) # +
 # facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
-df_vaccCoverage
 
+# png(file = "pictures/epiAnalyses_vaccination_coverage_grouped.png",
+#     width = 29, height = 20, unit = "cm", res = 600)
+# df_vaccCoverage
+# dev.off()
 
 # data viz just only for serotype & AMR ########################################
 df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
-  # dplyr::filter(workPoppunk_qc == "pass_qc") %>%
+  dplyr::right_join(
+    read.table("outputs/result_poppunk/qfile_filtered_19to23.txt") %>% 
+      dplyr::mutate(specimen_id = V1,
+                    workPoppunk_qc = "pass_qc") %>% 
+      dplyr::select(specimen_id, workPoppunk_qc)
+    ,
+    by = "specimen_id"
+    
+  ) %>% 
+  dplyr::filter(workPoppunk_qc == "pass_qc") %>%
   dplyr::filter(workWGS_species_pw == "Streptococcus pneumoniae") %>% 
   dplyr::mutate(
     serotype_final_decision = case_when(
@@ -158,16 +171,13 @@ df_compiled_VT_percentage <- dplyr::left_join(
     #   T ~ vaccination_pcv13_dc_n_regroup
     # ),
     area = factor(area,
-                  levels = c("lombok", "sumbawa", "manado", "sorong"))
+                  levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
   ) %>% 
   # view() %>% 
-  glimpse()
-
-png(file = "pictures/genData_serotypes_vaccineGroup.png",
-    width = 29, height = 20, unit = "cm", res = 600)
-ggplot(df_compiled_VT_percentage, aes(x = serotype_classification_PCV13_final_decision,
-                                      y = percent,
-                                      fill = area)) +
+  glimpse() %>% 
+  ggplot(., aes(x = serotype_classification_PCV13_final_decision,
+                                        y = percent,
+                                        fill = area)) +
   geom_bar(stat = "identity", position = position_dodge()) +
   geom_text(aes(label = paste0(round(percent, 1), "%")),
             vjust = -0.5, size = 3,
@@ -184,15 +194,24 @@ ggplot(df_compiled_VT_percentage, aes(x = serotype_classification_PCV13_final_de
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
-        legend.position = c(0.02, 0.75),
+        legend.position = "right", # c(0.02, 0.75),
         legend.direction = "vertical",
-        legend.justification = c("left", "top"),
+        legend.justification = c("left", "centre"),
         legend.background = element_rect(fill = NA, color = NA),
         legend.title = element_blank(),
-        legend.margin = margin(t = -50),
-        legend.spacing.y = unit(-0.3, "cm")) # +
+        # legend.margin = margin(t = -50),
+        # legend.spacing.y = unit(-0.3, "cm")
+        ) # +
 # facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
-dev.off()
+
+# png(file = "pictures/genData_vaccCoverage_and_serotypes_vaccineGroup.png",
+#     width = 29, height = 10, unit = "cm", res = 600)
+combined_vaccCoverage_and_serotypes <- cowplot::plot_grid(
+  df_vaccCoverage, df_compiled_VT_percentage,
+  nrow = 1,
+  labels = c("A", "B"),
+  rel_widths = c(0.8, 1))
+# dev.off()
 
 
 # serotypes per-area ###########################################################
@@ -204,17 +223,19 @@ ser1 <- ggplot(df_serotype_summary %>%
                    fill = serotype_classification_PCV13_final_decision)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = percentage_label),
+            angle = 30,
             vjust = -0.5, size = 3) +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1),
+                     limits = c(0, 11)) +
   labs(x = " ", y = "Percentage", 
        # title = "All Serotypes"
   ) +
   scale_fill_manual(values = c(col_map)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.22, 0.75),
+        legend.position = "right", # c(0.02, 0.75),
         legend.direction = "vertical",
-        legend.justification = c("left", "top"),
+        legend.justification = c("left", "centre"),
         legend.background = element_rect(fill = NA, color = NA),
         legend.title = element_blank(),
         legend.margin = margin(t = -50),
@@ -232,7 +253,7 @@ df_serotype_age_year_3groups_summary <- df_epi_gen_pneumo %>%
                                   levels = c("1", "2", "3", "4", "5")),
                 serotype_classification_PCV13_final_decision = case_when(
                   serotype_final_decision %in% c("1", "3", "4", "5", "7F",
-                                                 "6A", "6B", "9V", "14", "18C",
+                                                 "6A", "6B", "6C", "9V", "14", "18C",
                                                  "19A", "19F", "23F") ~ "VT",
                   serotype_final_decision == "nontypeable" ~ "nontypeable",
                   TRUE ~ "NVT"
@@ -288,7 +309,7 @@ df_serotype_area_summary <- df_epi_gen_pneumo %>%
   # percentage is calculated from count_serotype per area
   dplyr::mutate(percentage = count / sum(count) * 100,
                 area = factor(area,
-                              levels = c("lombok", "sumbawa", "manado", "sorong")),
+                              levels = c("Lombok", "Sumbawa", "Manado", "Sorong")),
                 serotype_classification_PCV13_final_decision = case_when(
                   serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                  "6A", "6B", "9V", "14", "18C",
@@ -328,9 +349,9 @@ ser2 <- ggplot(df_serotype_area_summary, aes(x = serotype_final_decision,
   ) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        legend.position = c(0.22, 0.75),
+        legend.position = "right", # c(0.02, 0.75),
         legend.direction = "vertical",
-        legend.justification = c("left", "top"),
+        legend.justification = c("left", "centre"),
         legend.background = element_rect(fill = NA, color = NA),
         legend.title = element_blank(),
         legend.margin = margin(t = -50),
@@ -338,17 +359,25 @@ ser2 <- ggplot(df_serotype_area_summary, aes(x = serotype_final_decision,
 # facet_wrap(~ serotype_classification_PCV13_final_decision, nrow = 1, scales = "free_x")
 ser2
 
-png(file = "pictures/genData_serotypes_classification_filterPneumo.png",
-    width = 29, height = 23, unit = "cm", res = 600)
-cowplot::plot_grid(ser1, ser2,
+combined_serotypes <- cowplot::plot_grid(
+  ser1, ser2,
+  nrow = 2,
+  labels = c("C", "D"))
+
+
+png(file = "pictures/genData_combined_vaccCoverage_and_serotypes.png",
+    width = 29, height = 29, unit = "cm", res = 600)
+cowplot::plot_grid(combined_vaccCoverage_and_serotypes, combined_serotypes,
                    nrow = 2,
-                   labels = c("A", "B"))
+                   rel_heights = c(0.5, 1)
+                   )
 dev.off()
+
 
 
 # additional visualisation of serotype percentage per area & age ###############
 # additional visualisation of serotype percentage per area & age
-# levels = c("lombok", "sumbawa", "manado", "sorong"))
+# levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
 area <- unique(df_epi_gen_pneumo$area)
 plotStore_area <- list()
 
@@ -429,15 +458,15 @@ dev.off()
 # additional visualisation of serotype percentage per PCV13-implemented area & age
 # levels = c("PCV13-implemented area", "Not yet implemented area"))
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Not yet implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Manado & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
   plot <- df_epi_gen_pneumo %>% 
     dplyr::mutate(vaccination_status_area = case_when(
-      area == "lombok" |
-        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+      area == "Lombok" |
+        area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Pre-implemented area (Manado & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -512,7 +541,7 @@ dev.off()
 
 # additional visualisation of serotype percentage per area & age (year) ########
 # additional visualisation of serotype percentage per area & age
-# levels = c("lombok", "sumbawa", "manado", "sorong"))
+# levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
 area <- unique(df_epi_gen_pneumo$area)
 plotStore_area <- list()
 
@@ -591,15 +620,15 @@ dev.off()
 # additional visualisation of serotype percentage per PCV13-implemented area & age
 # levels = c("PCV13-implemented area", "Not yet implemented area"))
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Not yet implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Manado & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
   plot <- df_epi_gen_pneumo %>% 
     dplyr::mutate(vaccination_status_area = case_when(
-      area == "lombok" |
-        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+      area == "Lombok" |
+        area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Pre-implemented area (Manado & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -1143,15 +1172,15 @@ dev.off()
 
 # deep dive of MDR in PCV13-implemented area ###################################
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Not yet implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Manado & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
   plot <- df_epi_gen_pneumo %>%
     dplyr::mutate(vaccination_status_area = case_when(
-      area == "lombok" |
-        area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Not yet implemented area (Manado & Sorong)"
+      area == "Lombok" |
+        area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Pre-implemented area (Manado & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -1160,9 +1189,9 @@ for(a in vaccination_status_area){
     dplyr::left_join(
       df_epi_gen_pneumo %>% 
         dplyr::mutate(vaccination_status_area = case_when(
-          area == "lombok" |
-            area == "sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-          TRUE ~ "Not yet implemented area (Manado & Sorong)"
+          area == "Lombok" |
+            area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+          TRUE ~ "Pre-implemented area (Manado & Sorong)"
         )
         ) %>% 
         dplyr::filter(vaccination_status_area == a) %>% 
