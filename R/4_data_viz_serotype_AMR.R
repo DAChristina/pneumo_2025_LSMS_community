@@ -17,7 +17,7 @@ df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>%
   dplyr::mutate(percentage = round(count_nvac / count_area * 100, 1),
                 area = factor(area,
                               levels = c("Lombok", "Sumbawa",
-                                         "Manado", "Sorong"))
+                                         "Minahasa", "Sorong"))
                 ) %>%
   dplyr::arrange(desc(percentage)) %>% 
   # dplyr::transmute(
@@ -96,11 +96,11 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                        "28A", "31", "33B", "33G",
                                        "34", "35A", "35B", "35C", "35F", "37",
                                        "37F", "38", "39",
-                                       "nontypeable")),
+                                       "NT")),
     serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "nontypeable")),
+                                                          levels = c("VT", "NVT", "NT")),
     serotype_classification_PCV15_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "nontypeable"))
+                                                          levels = c("VT", "NVT", "NT"))
   ) %>%
   glimpse()
 
@@ -171,7 +171,7 @@ df_compiled_VT_percentage <- dplyr::left_join(
     #   T ~ vaccination_pcv13_dc_n_regroup
     # ),
     area = factor(area,
-                  levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
+                  levels = c("Lombok", "Sumbawa", "Minahasa", "Sorong"))
   ) %>% 
   # view() %>% 
   glimpse() %>% 
@@ -253,9 +253,9 @@ df_serotype_age_year_3groups_summary <- df_epi_gen_pneumo %>%
                                   levels = c("1", "2", "3", "4", "5")),
                 serotype_classification_PCV13_final_decision = case_when(
                   serotype_final_decision %in% c("1", "3", "4", "5", "7F",
-                                                 "6A", "6B", "6C", "9V", "14", "18C",
+                                                 "6A", "6B", "9V", "14", "18C",
                                                  "19A", "19F", "23F") ~ "VT",
-                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  serotype_final_decision == "NT" ~ "NT",
                   TRUE ~ "NVT"
                 ),
                 serotype_classification_PCV15_final_decision = case_when(
@@ -263,11 +263,11 @@ df_serotype_age_year_3groups_summary <- df_epi_gen_pneumo %>%
                                                  "6A", "6B", "9V", "14", "18C",
                                                  "19A", "19F", "23F",
                                                  "22F", "33F") ~ "VT",
-                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  serotype_final_decision == "NT" ~ "NT",
                   TRUE ~ "NVT"
                 ),
                 serotype_classification_PCV13_final_decision = case_when(
-                  serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                  serotype_classification_PCV13_final_decision == "NT" ~ " ",
                   TRUE ~ serotype_classification_PCV13_final_decision
                 ),
                 serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -309,12 +309,12 @@ df_serotype_area_summary <- df_epi_gen_pneumo %>%
   # percentage is calculated from count_serotype per area
   dplyr::mutate(percentage = count / sum(count) * 100,
                 area = factor(area,
-                              levels = c("Lombok", "Sumbawa", "Manado", "Sorong")),
+                              levels = c("Lombok", "Sumbawa", "Minahasa", "Sorong")),
                 serotype_classification_PCV13_final_decision = case_when(
                   serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                  "6A", "6B", "9V", "14", "18C",
                                                  "19A", "19F", "23F") ~ "VT",
-                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  serotype_final_decision == "NT" ~ "NT",
                   TRUE ~ "NVT"
                 ),
                 serotype_classification_PCV15_final_decision = case_when(
@@ -322,11 +322,11 @@ df_serotype_area_summary <- df_epi_gen_pneumo %>%
                                                  "6A", "6B", "9V", "14", "18C",
                                                  "19A", "19F", "23F",
                                                  "22F", "33F") ~ "VT",
-                  serotype_final_decision == "nontypeable" ~ "nontypeable",
+                  serotype_final_decision == "NT" ~ "NT",
                   TRUE ~ "NVT"
                 ),
                 serotype_classification_PCV13_final_decision = case_when(
-                  serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                  serotype_classification_PCV13_final_decision == "NT" ~ " ",
                   TRUE ~ serotype_classification_PCV13_final_decision
                 ),
                 serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -377,7 +377,7 @@ dev.off()
 
 # additional visualisation of serotype percentage per area & age ###############
 # additional visualisation of serotype percentage per area & age
-# levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
+# levels = c("Lombok", "Sumbawa", "Minahasa", "Sorong"))
 area <- unique(df_epi_gen_pneumo$area)
 plotStore_area <- list()
 
@@ -397,7 +397,7 @@ for(a in area){
                     serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV15_final_decision = case_when(
@@ -405,11 +405,11 @@ for(a in area){
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F",
                                                    "22F", "33F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV13_final_decision = case_when(
-                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    serotype_classification_PCV13_final_decision == "NT" ~ " ",
                     TRUE ~ serotype_classification_PCV13_final_decision
                   ),
                   serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -458,7 +458,7 @@ dev.off()
 # additional visualisation of serotype percentage per PCV13-implemented area & age
 # levels = c("PCV13-implemented area", "Not yet implemented area"))
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Pre-implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Minahasa & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
@@ -466,7 +466,7 @@ for(a in vaccination_status_area){
     dplyr::mutate(vaccination_status_area = case_when(
       area == "Lombok" |
         area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Pre-implemented area (Manado & Sorong)"
+      TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -483,7 +483,7 @@ for(a in vaccination_status_area){
                     serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV15_final_decision = case_when(
@@ -491,11 +491,11 @@ for(a in vaccination_status_area){
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F",
                                                    "22F", "33F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV13_final_decision = case_when(
-                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    serotype_classification_PCV13_final_decision == "NT" ~ " ",
                     TRUE ~ serotype_classification_PCV13_final_decision
                   ),
                   serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -541,7 +541,7 @@ dev.off()
 
 # additional visualisation of serotype percentage per area & age (year) ########
 # additional visualisation of serotype percentage per area & age
-# levels = c("Lombok", "Sumbawa", "Manado", "Sorong"))
+# levels = c("Lombok", "Sumbawa", "Minahasa", "Sorong"))
 area <- unique(df_epi_gen_pneumo$area)
 plotStore_area <- list()
 
@@ -559,7 +559,7 @@ for(a in area){
                     serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV15_final_decision = case_when(
@@ -567,11 +567,11 @@ for(a in area){
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F",
                                                    "22F", "33F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV13_final_decision = case_when(
-                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    serotype_classification_PCV13_final_decision == "NT" ~ " ",
                     TRUE ~ serotype_classification_PCV13_final_decision
                   ),
                   serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -620,7 +620,7 @@ dev.off()
 # additional visualisation of serotype percentage per PCV13-implemented area & age
 # levels = c("PCV13-implemented area", "Not yet implemented area"))
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Pre-implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Minahasa & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
@@ -628,7 +628,7 @@ for(a in vaccination_status_area){
     dplyr::mutate(vaccination_status_area = case_when(
       area == "Lombok" |
         area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Pre-implemented area (Manado & Sorong)"
+      TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -643,7 +643,7 @@ for(a in vaccination_status_area){
                     serotype_final_decision %in% c("1", "3", "4", "5", "7F",
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV15_final_decision = case_when(
@@ -651,11 +651,11 @@ for(a in vaccination_status_area){
                                                    "6A", "6B", "9V", "14", "18C",
                                                    "19A", "19F", "23F",
                                                    "22F", "33F") ~ "VT",
-                    serotype_final_decision == "nontypeable" ~ "nontypeable",
+                    serotype_final_decision == "NT" ~ "NT",
                     TRUE ~ "NVT"
                   ),
                   serotype_classification_PCV13_final_decision = case_when(
-                    serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+                    serotype_classification_PCV13_final_decision == "NT" ~ " ",
                     TRUE ~ serotype_classification_PCV13_final_decision
                   ),
                   serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -699,6 +699,337 @@ cowplot::plot_grid(plotlist = plotStore_vaccArea,
 dev.off()
 
 
+
+
+
+# additional visualisation of GPSC percentage per serotype per vaccarea ########
+serobigsix_all <- df_epi_gen_pneumo %>% 
+  dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                               "6A", "6B",
+                                               "11A", "13",
+                                               "15B", "15C",
+                                               "NT")
+  ) %>% 
+  dplyr::group_by(serotype_final_decision,
+                  workWGS_gpsc_strain) %>% 
+  dplyr::summarise(n = n(), .groups = "drop") %>% 
+  dplyr::left_join(
+    df_epi_gen_pneumo %>% 
+      dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                                   "6A", "6B",
+                                                   "11A", "13",
+                                                   "15B", "15C",
+                                                   "NT")
+      ) %>% 
+      dplyr::group_by(serotype_final_decision
+      ) %>% 
+      dplyr::summarise(n_all = n(), .groups = "drop")
+    ,
+    by = c("serotype_final_decision")
+  ) %>% 
+  dplyr::mutate(
+    percent = round(n/n_all*100, 1),
+    report = paste0(n, "/", n_all,  " (", percent, "%)"),
+    # adjust some values for viz
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+                                 "Not\nassigned",
+                                 workWGS_gpsc_strain),
+    label = ifelse(percent <= 25, " ", paste0(round(percent, 1), "%")),
+    serotype_final_decision = ifelse(serotype_final_decision != "NT",
+                                     paste0("Serotype ",
+                                            serotype_final_decision),
+                                     "NT"),
+    serotype_final_decision = factor(serotype_final_decision,
+                                     levels = c(
+                                       # VT
+                                       "Serotype 6A", "Serotype 6B",
+                                       "Serotype 19F", "Serotype 23F",
+                                       
+                                       # NVT
+                                       "Serotype 11A", "Serotype 13",
+                                       "Serotype 15B", "Serotype 15C",
+                                       
+                                       # NT
+                                       "NT"
+                                     )),
+  ) %>% 
+  dplyr::arrange(serotype_final_decision,
+                 desc(percent),
+  ) %>% 
+  glimpse() %>% 
+  ggplot(.,
+         aes(x = workWGS_gpsc_strain,
+             y = percent,
+             fill = serotype_final_decision)) +
+  geom_bar(stat = "identity",
+           position = "stack") +
+  scale_y_continuous(labels = scales::percent_format(scale = 1),
+                     breaks = c(0, 25, 50, 75, 100),
+                     limits = c(0, 110)) +
+  # scale_fill_manual(values = c(col_map)) +
+  scale_fill_viridis_d() +
+  labs(x = "GPSC", y = "Percentage"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        # legend.justification = c("left", "top"),
+        legend.background = element_rect(fill = NA, color = NA),
+        legend.title = element_blank(),
+        legend.text  = element_text(size = 11),
+        # legend.margin = margin(t = -50),
+        # legend.spacing.y = unit(-0.3, "cm")
+  )
+
+serobigsix <- df_epi_gen_pneumo %>% 
+  dplyr::mutate(
+    # add vaccination status according to area
+    vacc_area = case_when(
+      area == "Lombok" | 
+        area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+      TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
+    ),
+    # vacc_area = factor(vacc_area,
+    #                    levels = c("no", "vaccinated")),
+    
+  ) %>% 
+  dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                               "6A", "6B",
+                                               "11A", "13",
+                                               "15B", "15C",
+                                               "NT")
+  ) %>% 
+  dplyr::group_by(vacc_area,
+                  serotype_final_decision,
+                  workWGS_gpsc_strain) %>% 
+  dplyr::summarise(n = n(), .groups = "drop") %>% 
+  dplyr::left_join(
+    df_epi_gen_pneumo %>% 
+      dplyr::mutate(
+        # add vaccination status according to area
+        vacc_area = case_when(
+          area == "Lombok" | 
+            area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
+          TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
+        ),
+        # vacc_area = factor(vacc_area,
+        #                    levels = c("no", "vaccinated")),
+      ) %>% 
+      dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                                   "6A", "6B",
+                                                   "11A", "13",
+                                                   "15B", "15C",
+                                                   "NT")
+      ) %>% 
+      dplyr::group_by(vacc_area,
+                      serotype_final_decision
+      ) %>% 
+      dplyr::summarise(n_all = n(), .groups = "drop")
+    ,
+    by = c("vacc_area", "serotype_final_decision")
+  ) %>% 
+  dplyr::mutate(
+    percent = round(n/n_all*100, 1),
+    report = paste0(n, "/", n_all,  " (", percent, "%)"),
+    # adjust some values for viz
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+                                 "Not\nassigned",
+                                 workWGS_gpsc_strain),
+    label = ifelse(percent <= 25, " ", paste0(round(percent, 1), "%")),
+    serotype_final_decision = ifelse(serotype_final_decision != "NT",
+                                     paste0("Serotype ",
+                                            serotype_final_decision),
+                                     "NT"),
+    serotype_final_decision = factor(serotype_final_decision,
+                                     levels = c(
+                                       # VT
+                                       "Serotype 6A", "Serotype 6B",
+                                       "Serotype 19F", "Serotype 23F",
+                                       
+                                       # NVT
+                                       "Serotype 11A", "Serotype 13",
+                                       "Serotype 15B", "Serotype 15C",
+                                       
+                                       # NT
+                                       "NT"
+                                     )),
+  ) %>% 
+  dplyr::arrange(serotype_final_decision,
+                 desc(percent),
+  ) %>% 
+  glimpse() %>% 
+  ggplot(.,
+         aes(x = workWGS_gpsc_strain,
+             y = percent,
+             fill = vacc_area)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_text(aes(label = label),
+            vjust = -0.5, size = 3,
+            angle = 0,
+            position = position_dodge(width = 1)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1),
+                     breaks = c(0, 25, 50, 75, 100),
+                     limits = c(0, 110)) +
+  scale_fill_manual(values = c(col_map)) +
+  labs(x = "GPSC", y = "Percentage"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 9.5),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        # legend.justification = c("left", "top"),
+        legend.background = element_rect(fill = NA, color = NA),
+        legend.title = element_blank(),
+        legend.text  = element_text(size = 11),
+        # legend.margin = margin(t = -50),
+        # legend.spacing.y = unit(-0.3, "cm")
+  ) +
+  facet_wrap(~ serotype_final_decision,
+             ncol = 4,
+             scales = "free_x")
+
+
+png(file = "pictures/genData_gpsc_serobigsix_vaccArea.png",
+    width = 23, height = 29, unit = "cm", res = 600)
+cowplot::plot_grid(serobigsix_all, serobigsix,
+                   nrow = 2,
+                   rel_heights = c(0.5, 1),
+                   labels = c("A", "B")
+)
+dev.off()
+
+serobigsix_filter <- serobigsix %>% 
+  dplyr::group_by(serotype_final_decision) %>%
+  dplyr::slice_max(order_by = percent, n = 3) %>%
+  ungroup() %>%
+  dplyr::mutate(
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not\nassigned",
+                                 "Not assigned",
+                                 workWGS_gpsc_strain),
+  ) %>% 
+  glimpse()
+
+
+serobigsix_st <- df_epi_gen_pneumo %>% 
+  dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                               "6A", "6B",
+                                               "11A", "13",
+                                               "15B", "15C",
+                                               "NT"),
+                workWGS_gpsc_strain %in% unique(serobigsix_filter$workWGS_gpsc_strain)
+  ) %>% 
+  dplyr::mutate(
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+                                 "NA",
+                                 workWGS_gpsc_strain),
+    workWGS_MLST_pw_ST = ifelse(grepl("\\*", workWGS_MLST_pw_ST), "NA",
+                                workWGS_MLST_pw_ST),
+    gpsc_st = paste0(workWGS_gpsc_strain, "-", workWGS_MLST_pw_ST),
+    gpsc_st = ifelse(gpsc_st == "NA-NA", "NA", gpsc_st)
+  ) %>% 
+  dplyr::group_by(serotype_final_decision,
+                  gpsc_st) %>% 
+  dplyr::summarise(n = n(), .groups = "drop") %>% 
+  dplyr::left_join(
+    df_epi_gen_pneumo %>% 
+      dplyr::filter(serotype_final_decision %in% c("19F", "23F",
+                                                   "6A", "6B",
+                                                   "11A", "13",
+                                                   "15B", "15C",
+                                                   "NT"),
+                    workWGS_gpsc_strain %in% unique(serobigsix_filter$workWGS_gpsc_strain)
+      ) %>% 
+      dplyr::mutate(
+        workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+                                     "NA",
+                                     workWGS_gpsc_strain),
+        workWGS_MLST_pw_ST = ifelse(grepl("\\*", workWGS_MLST_pw_ST), "NA",
+                                    workWGS_MLST_pw_ST),
+        gpsc_st = paste0(workWGS_gpsc_strain, "-", workWGS_MLST_pw_ST),
+        gpsc_st = ifelse(gpsc_st == "NA-NA", "NA", gpsc_st)
+      ) %>% 
+      dplyr::group_by(serotype_final_decision
+      ) %>% 
+      dplyr::summarise(n_all = n(), .groups = "drop")
+    ,
+    by = c("serotype_final_decision")
+  ) %>% 
+  dplyr::mutate(
+    percent = round(n/n_all*100, 1),
+    report = paste0(n, "/", n_all,  " (", percent, "%)"),
+    # adjust some values for viz
+    label = ifelse(percent <= 25 | percent == 100.0, " ", paste0(round(percent, 1), "%")),
+    serotype_final_decision = ifelse(serotype_final_decision != "NT",
+                                     paste0("Serotype ",
+                                            serotype_final_decision),
+                                     "NT"),
+    serotype_final_decision = factor(serotype_final_decision,
+                                     levels = c(
+                                       # VT
+                                       "Serotype 6A", "Serotype 6B",
+                                       "Serotype 19F", "Serotype 23F",
+                                       
+                                       # NVT
+                                       "Serotype 11A", "Serotype 13",
+                                       "Serotype 15B", "Serotype 15C",
+                                       
+                                       # NT
+                                       "NT"
+                                     )),
+  ) %>% 
+  dplyr::arrange(serotype_final_decision,
+                 desc(percent),
+  ) %>% 
+  glimpse() %>% 
+  ggplot(.,
+         aes(x = gpsc_st,
+             y = percent,
+             fill = serotype_final_decision)) +
+  geom_bar(stat = "identity",
+           position = "stack") +
+  # geom_text(aes(label = label),
+  #           vjust = -0.5, size = 3,
+  #           angle = 0,
+  #           check_overlap = TRUE,
+  #           position = position_stack(vjust = 1)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1),
+                     breaks = c(0, 25, 50, 75, 100),
+                     limits = c(0, 100)) +
+  scale_fill_viridis_d() +
+  labs(x = "GPSC-ST", y = "Percentage"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        # legend.justification = c("left", "top"),
+        legend.background = element_rect(fill = NA, color = NA),
+        legend.title = element_blank(),
+        legend.text  = element_text(size = 11),
+        # legend.margin = margin(t = -50),
+        # legend.spacing.y = unit(-0.3, "cm")
+  ) #+
+  # facet_wrap(~ vacc_area,
+  #            nrow = 2,
+  #            scales = "free_x")
+
+# png(file = "pictures/genData_gpsc-st_serobigsix_vaccArea.png",
+#     width = 40, height = 20, unit = "cm", res = 600)
+serobigsix_st
+# dev.off()
+
+png(file = "pictures/genData_gpsc_serobigsixst_vaccArea.png",
+    width = 23, height = 29, unit = "cm", res = 600)
+cowplot::plot_grid(serobigsix_st, serobigsix,
+                   nrow = 2,
+                   rel_heights = c(0.5, 1),
+                   labels = c("A", "B")
+)
+dev.off()
+
+
+
 # AMR analyses & viz ###########################################################
 # load df_epi_gen_pneumo first
 # AMR and virulence factors use pass qc samples (n = 314)
@@ -733,11 +1064,11 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                        "28A", "31", "33B", "33G",
                                        "34", "35A", "35B", "35C", "35F", "37",
                                        "37F", "38", "39",
-                                       "nontypeable")),
+                                       "NT")),
     serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "nontypeable")),
+                                                          levels = c("VT", "NVT", "NT")),
     serotype_classification_PCV15_final_decision = factor(serotype_classification_PCV13_final_decision,
-                                                          levels = c("VT", "NVT", "nontypeable"))
+                                                          levels = c("VT", "NVT", "NT"))
   ) %>%
   glimpse()
 
@@ -863,7 +1194,7 @@ amr_ser_long <- df_epi_gen_pneumo %>%
       dplyr::mutate(
         # slightly change classifications
         serotype_classification_PCV13_final_decision = case_when(
-          serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+          serotype_classification_PCV13_final_decision == "NT" ~ " ",
           TRUE ~ serotype_classification_PCV13_final_decision
         ),
         serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -942,7 +1273,7 @@ df_amr_counts_summary <- df_epi_gen_pneumo %>%
       dplyr::mutate(
         # slightly change classifications
         serotype_classification_PCV13_final_decision = case_when(
-          serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+          serotype_classification_PCV13_final_decision == "NT" ~ " ",
           TRUE ~ serotype_classification_PCV13_final_decision
         ),
         serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -1023,7 +1354,7 @@ df_amr_mdr_summary <- df_epi_gen_pneumo %>%
       dplyr::mutate(
         # slightly change classifications
         serotype_classification_PCV13_final_decision = case_when(
-          serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+          serotype_classification_PCV13_final_decision == "NT" ~ " ",
           TRUE ~ serotype_classification_PCV13_final_decision
         ),
         serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -1109,7 +1440,7 @@ for(a in area){
         dplyr::mutate(
           # slightly change classifications
           serotype_classification_PCV13_final_decision = case_when(
-            serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+            serotype_classification_PCV13_final_decision == "NT" ~ " ",
             TRUE ~ serotype_classification_PCV13_final_decision
           ),
           serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,
@@ -1172,7 +1503,7 @@ dev.off()
 
 # deep dive of MDR in PCV13-implemented area ###################################
 vaccination_status_area <- c("PCV13-implemented area (Lombok & Sumbawa)",
-                             "Pre-implemented area (Manado & Sorong)")
+                             "Pre-implemented area (Minahasa & Sorong)")
 plotStore_vaccArea <- list()
 
 for(a in vaccination_status_area){
@@ -1180,7 +1511,7 @@ for(a in vaccination_status_area){
     dplyr::mutate(vaccination_status_area = case_when(
       area == "Lombok" |
         area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-      TRUE ~ "Pre-implemented area (Manado & Sorong)"
+      TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
     )
     ) %>% 
     dplyr::filter(vaccination_status_area == a) %>% 
@@ -1191,7 +1522,7 @@ for(a in vaccination_status_area){
         dplyr::mutate(vaccination_status_area = case_when(
           area == "Lombok" |
             area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-          TRUE ~ "Pre-implemented area (Manado & Sorong)"
+          TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
         )
         ) %>% 
         dplyr::filter(vaccination_status_area == a) %>% 
@@ -1213,7 +1544,7 @@ for(a in vaccination_status_area){
         dplyr::mutate(
           # slightly change classifications
           serotype_classification_PCV13_final_decision = case_when(
-            serotype_classification_PCV13_final_decision == "nontypeable" ~ " ",
+            serotype_classification_PCV13_final_decision == "NT" ~ " ",
             TRUE ~ serotype_classification_PCV13_final_decision
           ),
           serotype_classification_PCV13_final_decision = factor(serotype_classification_PCV13_final_decision,

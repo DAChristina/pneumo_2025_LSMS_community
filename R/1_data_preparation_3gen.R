@@ -1,9 +1,6 @@
 library(tidyverse)
 
 # Data cleaning process for genData ############################################
-# Apparently "No Isolat" is based on the first line inside <cat *.fasta>.
-# I extract "No Isolat" on terminal; see 0_temporary_script
-
 # BE CAREFUL while inspecting Data WGS_Lombok.xlsx;
 # 49 "No Isolat" with joined <location ID> & <participat ID>
 # I manually edit these inconsistencies
@@ -11,96 +8,6 @@ library(tidyverse)
 # extract specimen_id and area #################################################
 # combine previously compiled PW data
 # I manually edit 49 naming inconsistencies and duplicate values
-df_new <- readxl::read_excel("raw_data/Data WGS S. pneumoniae.xlsx",
-                             sheet = "Rekap Keseluruhan Baru") %>% 
-  dplyr::left_join(
-    read.csv("inputs/epiData_eng.csv") %>% 
-      dplyr::select(specimen_id, area) %>% 
-      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
-    ,
-    by = c("dc_id" = "workFasta_name")
-  ) %>% 
-  dplyr::filter(!is.na(area)) %>% 
-  glimpse()
-df_old1 <- readxl::read_excel("raw_data/Data WGS_Lombok_ver5.xlsx",
-                             sheet = "Sheet1") %>% 
-  dplyr::left_join(
-    read.csv("inputs/epiData_eng.csv") %>% 
-      dplyr::select(specimen_id, area) %>% 
-      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
-    ,
-    by = c("dc_id" = "workFasta_name")
-  ) %>% 
-  dplyr::filter(!is.na(area)) %>% 
-  glimpse()
-# currently sequenced, analysed with GPS pipeline (combined)
-genData_rfs <- readxl::read_excel("raw_data/genData_all_RFS.xlsx") %>% 
-  dplyr::filter(!str_detect(specimen_id, "_old|_invalid")) %>% 
-  # dplyr::anti_join(
-  #   df_gen_all
-  #   ,
-  #   by = "specimen_id"
-  # ) %>% 
-  dplyr::filter(!str_detect(specimen_id, "_old|_invalid")) %>% 
-  dplyr::transmute(
-    No = NA_real_,
-    `Process Date` = workWGS_process_date,
-    `No Isolat` = workWGS_no_isolat,
-    dc_id = paste0("Streptococcus_pneumoniae_", specimen_id),
-    `Organism name` = workWGS_species_pw,
-    `Genome length` = as.numeric(workWGS_genome_length),
-    `GC content` = workWGS_gc_content,
-    Serotype = workWGS_serotype,
-    `Sequence Type` = workWGS_MLST_pw_ST,
-    `GPSC Strain` = workWGS_gpsc_strain,
-    aroE = workWGS_MLST_pw_aroe,
-    gdh = workWGS_MLST_pw_gdh,
-    gki = workWGS_MLST_pw_gki,
-    recP = workWGS_MLST_pw_recp,
-    spi = workWGS_MLST_pw_spi,
-    xpt = workWGS_MLST_pw_xpt,
-    ddl = workWGS_MLST_pw_ddl,
-    PBP1a = workWGS_AMR_pbp1a,
-    PBP2b = workWGS_AMR_pbp2b,
-    PBP2x = workWGS_AMR_pbp2x,
-    Chloramphenicol = workWGS_AMR_chloramphenicol,
-    Clindamycin = workWGS_AMR_clindamycin,
-    Erythromycin = workWGS_AMR_erythromycin,
-    Fluoroquinolones = workWGS_AMR_fluoroquinolones,
-    Kanamycin = workWGS_AMR_kanamycin,
-    Linezolid = workWGS_AMR_linezolid,
-    Tetracycline = workWGS_AMR_tetracycline,
-    Trimethoprim = workWGS_AMR_trimethoprim,
-    Sulfamethoxazole = workWGS_AMR_sulfamethoxazole,
-    `Co-Trimoxazole` = workWGS_AMR_cotrimoxazole,
-    Amoxicillin = workWGS_AMR_amoxicillin,
-    Ceftriaxone = workWGS_AMR_ceftriaxone,
-    Cefotaxime = workWGS_AMR_cefotaxime,
-    Cefuroxime = workWGS_AMR_cefuroxime,
-    Meropenem = workWGS_AMR_meropenem,
-    Penicillin = workWGS_AMR_penicillin
-  ) %>% 
-  dplyr::left_join(
-    read.csv("inputs/epiData_eng.csv") %>% 
-      dplyr::select(specimen_id, area) %>% 
-      dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
-    ,
-    by = c("dc_id" = "workFasta_name")
-  ) %>% 
-  dplyr::filter(!is.na(area)) %>% 
-  glimpse()
-
-# remove weird column
-df_old1 <- df_old1 %>% select(-matches("^\\.\\.\\.")) %>% 
-  glimpse()
-final_df <- dplyr::bind_rows(
-  df_new,
-  df_old1,
-  genData_rfs
-  ) %>%
-  distinct(dc_id, .keep_all = TRUE) %>% 
-  glimpse()
-
 
 df_gen_all <- dplyr::right_join(
   read.csv("inputs/epiData_eng.csv") %>% 
@@ -108,7 +15,7 @@ df_gen_all <- dplyr::right_join(
     dplyr::mutate(workFasta_name = paste0("Streptococcus_pneumoniae_", specimen_id))
   ,  
   dplyr::bind_rows(
-    final_df
+    read.csv("inputs/final_df_genData_compiled.csv", check.names = FALSE)
     ,
       dplyr::bind_rows(
         # currently sequenced data (31/10/2025)
@@ -358,17 +265,18 @@ df_gen_all <- dplyr::right_join(
 ) %>% 
   dplyr::filter(!is.na(area)) %>% 
   dplyr::mutate(
-    serotype_final_decision = case_when(
+    serotype_final_decision = case_when( # final decision by capsule/serology
       workWGS_serotype == "03" ~ "3",
       workWGS_serotype == "06A" |
         workWGS_serotype == "06A(06A-III)" ~ "6A",
       workWGS_serotype == "06B" ~ "6B",
-      workWGS_serotype == "6E(6B)" ~ "6B",
+      workWGS_serotype == "6E(6B)" ~ "6B", # 6E with 6B-like capsule
       workWGS_serotype == "06C" ~ "6C",
       workWGS_serotype == "06C" ~ "6C",
       workWGS_serotype == "07C" ~ "7C",
-      workWGS_serotype == "10X" ~ "33G",
-      workWGS_serotype == "19F(19AF)" ~ "19F",
+      workWGS_serotype == "10X" ~ "33G", # validated with newest version in Pathogenwatch
+      # workWGS_serotype == "15B/15C" ~ "15B/C",
+      workWGS_serotype == "19F(19AF)" ~ "19A", # note: hybrid 19F with 19A-like capsule https://pmc.ncbi.nlm.nih.gov/articles/PMC4547413/
       workWGS_serotype == "untypable" | 
         workWGS_serotype == "untypeable" |
         workWGS_serotype == "Untypable" |
@@ -376,8 +284,8 @@ df_gen_all <- dplyr::right_join(
         workWGS_serotype == "Swiss_NT" |
         workWGS_serotype == "alternative_aliB_NT" |
         workWGS_serotype == "NCC1_pspK_NESp" |
-        workWGS_serotype == "NCC1_pspK_non_encapsulated" ~ "nontypeable",
-      workWGS_serotype == "24B/24C/24F" ~ "serogroup 24",
+        workWGS_serotype == "NCC1_pspK_non_encapsulated" ~ "NT",
+      workWGS_serotype == "24B/24C/24F" ~ "serogroup 24", # 24C: new capsule https://pmc.ncbi.nlm.nih.gov/articles/PMC8218768/
       is.na(workWGS_serotype) ~ NA,
       TRUE ~ workWGS_serotype
     )
@@ -385,9 +293,9 @@ df_gen_all <- dplyr::right_join(
   dplyr::mutate(
     serotype_classification_PCV13_final_decision = case_when(
       serotype_final_decision %in% c("1", "3", "4", "5", "7F",
-                                     "6A", "6B", "6C", "9V", "14", "18C",
+                                     "6A", "6B", "9V", "14", "18C",
                                      "19A", "19F", "23F") ~ "VT",
-      serotype_final_decision == "nontypeable" ~ "nontypeable",
+      serotype_final_decision == "NT" ~ "NT",
       is.na(serotype_final_decision) ~ NA,
       TRUE ~ "NVT"
     ),
@@ -396,7 +304,7 @@ df_gen_all <- dplyr::right_join(
                                      "6A", "6B", "9V", "14", "18C",
                                      "19A", "19F", "23F",
                                      "22F", "33F") ~ "VT",
-      serotype_final_decision == "nontypeable" ~ "nontypeable",
+      serotype_final_decision == "NT" ~ "NT",
       is.na(serotype_final_decision) ~ NA,
       TRUE ~ "NVT"
     )
@@ -467,11 +375,6 @@ df_gen_all %>%
                 ) %>% 
   # view() %>%
   glimpse()
-
-# For generating tree, I use prokka (*.gff) --> panaroo (*.aln) --> RAxML
-# We can use the *.gff files of 96 alignment files generated from ASA3P.
-
-# But BLAST analyses keep using contigs and alignment files.
 
 
 # test serotype list for factors ###############################################

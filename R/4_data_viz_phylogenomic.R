@@ -4,13 +4,6 @@ library(ggtreeExtra)
 source("global/fun.R")
 
 df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
-  # dplyr::left_join(
-  #   read.csv("inputs/genData_pneumo_panvita_long.csv") %>% 
-  #     dplyr::select(Strains,
-  #                   contains("gene_present_absent_"))
-  #   ,
-  #   by = c("workFasta_name" = "Strains")
-  # ) %>% 
   dplyr::right_join(
     read.table("outputs/result_poppunk/qfile_filtered_19to23.txt") %>% 
       dplyr::mutate(specimen_id = V1,
@@ -45,13 +38,16 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                                    "28A", "31", "33B", "33G",
                                                    "34", "35A", "35B", "35C", "35F", "37",
                                                    "37F", "38", "39",
-                                                   "nontypeable")),
+                                                   "NT")),
+                # test individual serotype
+                # serotype_final_decision = ifelse(serotype_final_decision == "NT", "NT", "others"),
+                
                 workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned", "not assigned",
                                              workWGS_gpsc_strain),
                 vaccination_status_area = case_when(
                   area == "Lombok" |
                     area == "Sumbawa" ~ "PCV13-implemented area (Lombok & Sumbawa)",
-                  TRUE ~ "Pre-implemented area (Manado & Sorong)"
+                  TRUE ~ "Pre-implemented area (Minahasa & Sorong)"
                 ),
                 
                 # reset logic label for AMR-MDR viz
@@ -152,7 +148,6 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
 
                 ) %>% 
   glimpse()
-tre_pp <- ape::read.tree("outputs/result_poppunk/rapidnj_no_GPSC/rapidnj_no_GPSC_core_NJ.tree")
 tre_raxml <- ape::read.tree("outputs/result_raxml_from_panaroo/RAxML_bestTree.1_output_tree")
 
 # focused on raxml tree: rearrange label coz' ggtree link label to row_names
@@ -171,43 +166,64 @@ ggtree(tre_raxml) +
   geom_label2(aes(subset=!isTip, label=node),
               size=2, color="darkred", alpha=0.5)
 
-# analyse weird subtree:
-subtree <- ape::extract.clade(tre_raxml,
-                              node = 1122) 
-# ggtree(subtree) + 
-#   geom_tiplab(size = 2) +
-#   geom_label2(aes(subset=!isTip, label=node), size=3, color="darkred", alpha=0.5)
-df_subtree <- data.frame(
-  selected_id = subtree$tip.label
+# analyse subtree:
+subtree1 <- ape::extract.clade(tre_raxml,
+                              node = 902)
+
+subtree2 <- c(
+  ape::extract.clade(tre_raxml, 638),
+  ape::extract.clade(tre_raxml, 1168),
+  ape::extract.clade(tre_raxml, 1123),
+  ape::extract.clade(tre_raxml, 794),
+  ape::extract.clade(tre_raxml, 902)
+)
+
+df_subtree <- dplyr::bind_rows(
+  data.frame(node = 638,
+             selected_id  = ape::extract.clade(tre_raxml, 638)$tip.label),
+  data.frame(node = 1168,
+             selected_id  = ape::extract.clade(tre_raxml, 1168)$tip.label),
+  data.frame(node = 1123,
+             selected_id  = ape::extract.clade(tre_raxml, 1123)$tip.label),
+  data.frame(node = 794,
+             selected_id  = ape::extract.clade(tre_raxml, 794)$tip.label),
+  data.frame(node = 902,
+             selected_id  = ape::extract.clade(tre_raxml, 902)$tip.label)
   ) %>% 
   dplyr::left_join(
     df_epi_gen_pneumo %>%
       dplyr::select(tre_raxml.tip.label,
                     serotype_final_decision,
                     workWGS_gpsc_strain,
+                    workWGS_MLST_pw_ST,
                     workWGS_AMR_MDR_flag)
     ,
     by = c("selected_id" = "tre_raxml.tip.label")
   ) %>%
-  # view() %>% 
+  # view() %>%
   glimpse()
 
-# basic
-show_pp <- ggtree(tre_pp,
-                  layout = "fan",
-                  open.angle=30,
-                  size=0.75,
-                  # aes(colour=Clade)
-                  ) %<+% 
-  df_epi_gen_pneumo +
-  # geom_tiplab(size = 2) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  geom_hilight(node=367, fill="pink", alpha=0.5)
-# show_pp
+# proportion calculation per node
+prop_calc2 <- df_subtree %>% 
+  dplyr::group_by(node,
+                  serotype_final_decision,
+                  workWGS_gpsc_strain,
+                  # workWGS_MLST_pw_ST
+                  ) %>% 
+  dplyr::summarise(n_all = n(), .groups = "drop") %>% 
+  dplyr::left_join(
+    df_subtree %>% 
+      dplyr::group_by(node) %>% 
+      dplyr::summarise(n_node = n(), .groups = "drop")
+    ,
+    by = "node"
+  ) %>% 
+  dplyr::mutate(
+    percent = round(n_all/n_node*100, 2),
+    report = paste0(n_all, "/", n_node, " (", percent, "%)")
+  ) %>% 
+  arrange(desc(percent)) %>% 
+  glimpse()
 
 show_raxml <- ggtree(tre_raxml,
                   layout = "fan",
@@ -222,13 +238,126 @@ show_raxml <- ggtree(tre_raxml,
     legend.text=element_text(size=9),
     legend.spacing.y = unit(0.02, "cm")
   ) +
+  # 23F GPSC14
+  geom_hilight(node=638, fill="#A63603", alpha=0.5) +
+  geom_cladelab(
+    data = data.frame(
+      node = 638,
+      name = "23F\n(GPSC14-ST242)\ndominant"
+    ),
+    mapping = aes(
+      node = node,
+      label = name
+    ),
+    align = TRUE,
+    offset = .23,
+    offset.text = .045,
+    hjust = "center",
+    barsize = .2,
+    fontsize = 3,
+    angle = "auto",
+    horizontal = FALSE
+  ) +
+  theme(
+    legend.position = "none",
+    plot.margin = grid::unit(c(-15, -15, -15, -15), "mm")
+  ) +
   # 19F (1123) & 6B (1168) --> all = 1122
   # geom_hilight(node=1122, fill="pink", alpha=0.5) +
-  geom_hilight(node=1123, fill="orange", alpha=0.5) +
-  geom_hilight(node=1168, fill="purple", alpha=0.5) +
-  
-  # 23F GPSC14
-  geom_hilight(node=638, fill="red", alpha=0.5)
+  geom_hilight(node=1168, fill="#FF7F00", alpha=0.5) +
+  geom_cladelab(
+    data = data.frame(
+      node = 1168,
+      name = "6B (GPSC185)\ndominant"
+    ),
+    mapping = aes(
+      node = node,
+      label = name
+    ),
+    align = TRUE,
+    offset = .23,
+    offset.text = .025,
+    hjust = "center",
+    barsize = .2,
+    fontsize = 3,
+    angle = "auto",
+    horizontal = FALSE
+  ) +
+  theme(
+    legend.position = "none",
+    plot.margin = grid::unit(c(-15, -15, -15, -15), "mm")
+  ) +
+  geom_hilight(node=1123, fill="#E31A1C", alpha=0.5) +
+  geom_cladelab(
+    data = data.frame(
+      node = 1123,
+      name = "19F (GPSC1)\ndominant"
+    ),
+    mapping = aes(
+      node = node,
+      label = name
+    ),
+    align = TRUE,
+    offset = .23,
+    offset.text = .025,
+    hjust = "center",
+    barsize = .2,
+    fontsize = 3,
+    angle = "auto",
+    horizontal = FALSE
+  ) +
+  theme(
+    legend.position = "none",
+    plot.margin = grid::unit(c(-15, -15, -15, -15), "mm")
+  ) +
+  # 11A
+  geom_hilight(node=794, fill="#1F78B4", alpha=0.5) +
+  geom_cladelab(
+    data = data.frame(
+      node = 794,
+      name = "11A\n(GPSC642-ST6191)\ndominant"
+    ),
+    mapping = aes(
+      node = node,
+      label = name
+    ),
+    align = TRUE,
+    offset = .23,
+    offset.text = .045,
+    hjust = "center",
+    barsize = .2,
+    fontsize = 3,
+    angle = "auto",
+    horizontal = FALSE
+  ) +
+  theme(
+    legend.position = "none",
+    plot.margin = grid::unit(c(-15, -15, -15, -15), "mm")
+  ) +
+  # serogroup 15 (15B & 15C)
+  geom_hilight(node=902, fill="#33A02C", alpha=0.5) +
+  geom_cladelab(
+    data = data.frame(
+      node = 902,
+      name = "15B & 15C\n(GPSC11-ST193)\ndominant"
+    ),
+    mapping = aes(
+      node = node,
+      label = name
+    ),
+    align = TRUE,
+    offset = .23,
+    offset.text = .045,
+    hjust = "center",
+    barsize = .2,
+    fontsize = 3,
+    angle = "auto",
+    horizontal = FALSE
+  ) +
+  theme(
+    legend.position = "none",
+    plot.margin = grid::unit(c(-15, -15, -15, -15), "mm")
+  )
 show_raxml
 
 # gen tree #####################################################################
@@ -244,8 +373,8 @@ tree_gen_raxml <- show_raxml %<+%
   scale_fill_manual(
     name="PCV13 serotype coverage",
     values=c(col_map),
-    breaks = c("VT", "NVT", "nontypeable"),
-    labels = c("VT", "NVT", "nontypeable"),
+    breaks = c("VT", "NVT", "NT"),
+    labels = c("VT", "NVT", "NT"),
     guide=guide_legend(keywidth=0.3, keyheight=0.3,
                        ncol=3, order=1)
   ) +
@@ -326,7 +455,7 @@ tree_gen_raxml <- show_raxml %<+%
     name="Vaccination status area",
     values=c(col_map),
     labels=c("PCV13-implemented area (Lombok & Sumbawa)",
-             "Pre-implemented area (Manado & Sorong)"),
+             "Pre-implemented area (Minahasa & Sorong)"),
     guide=guide_legend(keywidth=0.3, keyheight=0.3,
                        ncol = 1, order = 5)
   ) +
@@ -336,369 +465,13 @@ tree_gen_raxml <- show_raxml %<+%
     legend.spacing.y = unit(0.02, "cm")
   )
 
-png("pictures/phylo_raxml_1epiTree.png",
-    width = 25, height = 20, units = "cm", res = 800)
+# png("pictures/phylo_raxml_1epiTree.png",
+#     width = 30, height = 20, units = "cm", res = 800)
 tree_gen_raxml
-dev.off()
-
-# AMR tree ver1 ################################################################
-tree_amr_raxml <- show_raxml %<+%
-  df_epi_gen_pneumo +
-  # vaccine classification
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$serotype_classification_PCV13_final_decision),
-    width=0.02,
-    offset=0.05
-  ) +
-  scale_fill_manual(
-    name="PCV13 serotype coverage",
-    values=c(col_map),
-    breaks = c("VT", "NVT", "untypeable"),
-    labels = c("VT", "NVT", "untypeable"),
-    guide=guide_legend(keywidth=0.3, keyheight=0.3,
-                       ncol=3,
-                       order=1)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # serotype
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$serotype_final_decision),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    name = "Serotype",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 5, order = 2)
-  ) +
-  theme(
-    legend.title=element_text(size=12),
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # chloramphenicol
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_chloramphenicol),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Chloramphenicol",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 2)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # clindamycin
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_clindamycin),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Clindamycin",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 3)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # erythromycin
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_erythromycin),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Erythromycin",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 4)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # fluorofluoroquinolones
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom=geom_tile,
-  #   mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_fluoroquinolones),
-  #   width=0.02,
-  #   offset=0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   # name = "Fluorofluoroquinolones",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 3, order = 5)
-  # ) +
-  # theme(
-  #   legend.title=element_text(size=12), 
-  #   legend.text=element_text(size=9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # tetracycline
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_tetracycline),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Tetracycline",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 6)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # antifolates
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom=geom_tile,
-    mapping=aes(fill=df_epi_gen_pneumo$workWGS_AMR_logic_class_antifolates),
-    width=0.02,
-    offset=0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Antifolates",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 7)
-  ) +
-  theme(
-    legend.title=element_text(size=12), 
-    legend.text=element_text(size=9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # meropenem
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$workWGS_AMR_logic_class_carbapenems),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   # name = "Meropenem",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 3, order = 14)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # penicillins
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$workWGS_AMR_logic_class_penicillins),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   # name = "Penicillins",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 3, order = 15)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # cephalosporins
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom = geom_tile,
-    mapping = aes(fill = df_epi_gen_pneumo$workWGS_AMR_logic_class_cephalosporins),
-    width = 0.02,
-    offset = 0.1
-  ) +
-  scale_fill_viridis_d(
-    # name = "Cephalosporins",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 16)
-  ) +
-  theme(
-    legend.title = element_text(size = 0),
-    legend.text = element_text(size = 9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  # MDR flag
-  ggnewscale::new_scale_fill() +
-  ggtreeExtra::geom_fruit(
-    geom = geom_tile,
-    mapping = aes(fill = df_epi_gen_pneumo$workWGS_AMR_MDR_flag),
-    width = 0.02,
-    offset = 0.1
-  ) +
-  scale_fill_viridis_d(
-    name = "MDR Flag",
-    option = "C",
-    direction = -1,
-    guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-                         ncol = 3, order = 17)
-  ) +
-  theme(
-    legend.title = element_text(size = 0),
-    legend.text = element_text(size = 9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) +
-  theme(
-    legend.title = element_text(size = 0),
-    legend.text = element_text(size = 9),
-    legend.spacing.y = unit(0.02, "cm")
-  ) #+
-  # # Adherence (pavA)
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$gene_present_absent_pavA_Adherence),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   name = "Adherence (pavA)",
-  #   option = "C",
-  #   direction = 1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 2, order = 18)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # # Adherence (cbpA/pspC)
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$gene_present_absent_cbpA.pspC_Adherence),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   name = "Adherence (cbpA/pspC)",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 2, order = 19)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # # Exoenzyme (lytA)
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$gene_present_absent_lytA_Exoenzyme),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   name = "Exoenzyme (lytA)",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 2, order = 20)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # # Exotoxin (ply)
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$gene_present_absent_ply_Exotoxin),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   name = "Exotoxin (ply)",
-  #   option = "C",
-  #   direction = 1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 2, order = 21)
-  # ) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # ) +
-  # # Immune modulation (pspA)
-  # ggnewscale::new_scale_fill() +
-  # ggtreeExtra::geom_fruit(
-  #   geom = geom_tile,
-  #   mapping = aes(fill = df_epi_gen_pneumo$gene_present_absent_pspA_Immune.modulation),
-  #   width = 0.02,
-  #   offset = 0.1
-  # ) +
-  # scale_fill_viridis_d(
-  #   name = "Immune modulation (pspA)",
-  #   option = "C",
-  #   direction = -1,
-  #   guide = guide_legend(keywidth = 0.3, keyheight = 0.3,
-  #                        ncol = 2, order = 22)
-  # ) +
-  # # geom_axis_text(angle=-45, hjust=0, size=1.5) +
-  # theme(
-  #   legend.title = element_text(size = 0),
-  #   legend.text = element_text(size = 9),
-  #   legend.spacing.y = unit(0.02, "cm")
-  # )
-
-# png("pictures/phylo_raxml_2AMR_ver1.png",
-#     width = 30, height = 25, units = "cm", res = 800)
-# tree_amr_raxml
 # dev.off()
 
-# AMR tree ver2 ################################################################
 
+# AMR tree ver2 ################################################################
 filtered_df <- df_epi_gen_pneumo %>% 
   dplyr::select(
     # serotype_classification_PCV13_final_decision,
@@ -735,19 +508,9 @@ auto_col <- scales::hue_pal()(length(others))
 names(auto_col) <- others
 final_col <- c(manual, auto_col)
 
-# factor_levels <- c("FolP", 
-#                    "FolP", 
-#                    "Tet(M)", 
-#                    "cat",
-#                    "mefA",
-#                    " Not found", 
-#                    "NA")
-# 
-# filtered_df <- filtered_df %>%
-#   dplyr::mutate(across(everything(), ~factor(.x, levels = factor_levels)))
 
 png("pictures/phylo_raxml_2AMR_ver2.png",
-    width = 25, height = 15, units = "cm", res = 800)
+    width = 30, height = 15, units = "cm", res = 800)
 library(ggnewscale)
 p2 <- tree_gen_raxml + ggnewscale::new_scale_fill()
 ggtree::gheatmap(p2, filtered_df,
@@ -758,7 +521,8 @@ ggtree::gheatmap(p2, filtered_df,
                     drop = F,
                     # na.translate = FALSE,
                     name = "Antimicrobial resistance genes",
-                    guide = guide_legend(ncol = 7)
+                    guide = guide_legend(ncol = 7),
+                    labels = function(x) parse(text = parse_italiced_legends(x))
                     
   ) +
   # readjust legends

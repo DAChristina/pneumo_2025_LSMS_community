@@ -2,7 +2,6 @@ library(tidyverse)
 
 # Data cleaning process for workLab ############################################
 # Generate available fasta list first!
-# urgent data preparation for WGS checking
 
 # newest (cleaned) data for labWork (29 October 2025, ver. 6)
 # I manually combined the data (negatives were in hidden columns)
@@ -25,7 +24,7 @@ sheet_names <- sheet_all[!tolower(sheet_all) %in% "combined"]
 bind_all_labWork_data <- data.frame()
 for(s in sheet_names){
   read_all <- readxl::read_excel("raw_data/DATABASE PENELITIAN PNEUMOKOKUS (Manado, Lombok, Sorong, Sumbawa)_ver6.xlsx",
-                                sheet = s) %>% 
+                                sheet = "combined") %>% 
     janitor::clean_names() %>% 
     detoxdats::lowerval_except(., exclude = "specimen_id") %>%
     dplyr::mutate(

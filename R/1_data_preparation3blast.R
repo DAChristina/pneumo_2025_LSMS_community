@@ -164,7 +164,7 @@ read.table("outputs/result_blast/tblastn_tabular_lytA_piaB_SP2020.txt",
   dplyr::filter(
     file_name == "SWQ_365"
   ) %>%
-  view() %>% 
+  # view() %>% 
   glimpse()
 
 
