@@ -3,7 +3,7 @@ library(ggtree)
 library(ggtreeExtra)
 source("global/fun.R")
 
-df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
+df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision_adjusted_gpsc.csv") %>% 
   dplyr::right_join(
     read.table("outputs/result_poppunk/qfile_filtered_19to23.txt") %>% 
       dplyr::mutate(specimen_id = V1,
@@ -147,6 +147,7 @@ df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pne
                                               levels = c(" Not found", " MDR")),
 
                 ) %>% 
+  
   glimpse()
 tre_raxml <- ape::read.tree("outputs/result_raxml_from_panaroo/RAxML_bestTree.1_output_tree")
 

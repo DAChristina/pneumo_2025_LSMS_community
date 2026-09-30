@@ -1,20 +1,24 @@
 serogpsc_group <- df_epi_gen_pneumo %>% 
   dplyr::group_by(workWGS_gpsc_strain,
-                  serotype_final_decision) %>% 
-  dplyr::summarise(n = n(), .groups = "drop") %>% 
-  dplyr::group_by(workWGS_gpsc_strain) %>% 
-  dplyr::summarise(n = n(), .groups = "drop") %>% 
-  dplyr::filter(n > 1) %>% 
-  arrange(desc(n)) %>% 
+                  serotype_final_decision
+                  ) %>%
+  dplyr::summarise(n = n(), .groups = "drop") %>%
+  # dplyr::group_by(workWGS_gpsc_strain) %>%
+  # dplyr::summarise(n = n(), .groups = "drop") %>%
+  dplyr::filter(n > 1) %>%
+  arrange(desc(n)) %>%
+  dplyr::mutate(
+    percent = round(n/606*100, 1)
+  ) %>% 
   glimpse()
 
 
 
 serogpsc_st <- df_epi_gen_pneumo %>% 
   dplyr::filter(workWGS_gpsc_strain %in% unique(serogpsc_group$workWGS_gpsc_strain)) %>% 
-  dplyr::mutate(
-    gpsc_st = paste0()
-  ) %>% 
+  # dplyr::mutate(
+  #   gpsc_st = paste0()
+  # ) %>% 
   dplyr::group_by(serotype_final_decision,
                   workWGS_gpsc_strain) %>% 
   dplyr::summarise(n = n(), .groups = "drop") %>% 

@@ -17,56 +17,56 @@ df_gen_all <- dplyr::right_join(
   dplyr::bind_rows(
     read.csv("inputs/final_df_genData_compiled.csv", check.names = FALSE)
     ,
+    dplyr::bind_rows(
+      # currently sequenced data (31/10/2025)
       dplyr::bind_rows(
-        # currently sequenced data (31/10/2025)
-        dplyr::bind_rows(
-          read.csv("raw_data/results_SOQ.csv") %>% 
-            dplyr::mutate(across(everything(), as.character))
-          ,
-          read.csv("raw_data/results.csv") %>%
-            dplyr::filter(!stringr::str_detect(Sample_ID, "_SWB_")) %>%  # SWB is hospital data
-            dplyr::mutate(across(everything(), as.character))
-        ) %>% 
-          dplyr::transmute(
-            No = NA_integer_,
-            `Process Date` = as.character("30/10/2025"),
-            `No Isolat` = NA_character_,
-            dc_id = paste0("Streptococcus_penumoniae_", Sample_ID),
-            `Organism name` = ifelse(S.Pneumo_. >= 50, "Streptococcus pneumoniae",
-                                     "others"),
-            `Genome length` = as.double(Assembly_Length),
-            `GC content` = NA_character_,
-            Serotype = Serotype,
-            `Sequence Type` = ST,
-            `GPSC Strain` = GPSC,
-            aroE = aroE,
-            gdh = gdh,
-            gki = gki,
-            recP = recP,
-            spi = spi,
-            xpt = xpt,
-            ddl = ddl,
-            PBP1a = pbp1a,
-            PBP2b = pbp2b,
-            PBP2x = pbp2x,
-            Chloramphenicol = CHL_Res,
-            Clindamycin = CLI_Res,
-            Erythromycin = ERY_Res,
-            Fluoroquinolones = FQ_Res,
-            Kanamycin = KAN_Res,
-            Linezolid = NA_character_,
-            Tetracycline = TET_Res,
-            Trimethoprim = TMP_Res,
-            Sulfamethoxazole = SMX_Res,
-            `Co-Trimoxazole` = COT_Res,
-            Amoxicillin = AMO_Res,
-            Ceftriaxone = CFT_Res.Non.meningital.,
-            Cefotaxime = TAX_Res.Non.meningital.,
-            Cefuroxime = CFX_Res,
-            Meropenem = MER_Res,
-            Penicillin = PEN_Res.Non.meningital.
-          )
-      )
+        read.csv("raw_data/results_SOQ.csv") %>% 
+          dplyr::mutate(across(everything(), as.character))
+        ,
+        read.csv("raw_data/results.csv") %>%
+          dplyr::filter(!stringr::str_detect(Sample_ID, "_SWB_")) %>%  # SWB is hospital data
+          dplyr::mutate(across(everything(), as.character))
+      ) %>% 
+        dplyr::transmute(
+          No = NA_integer_,
+          `Process Date` = as.character("30/10/2025"),
+          `No Isolat` = NA_character_,
+          dc_id = paste0("Streptococcus_penumoniae_", Sample_ID),
+          `Organism name` = ifelse(S.Pneumo_. >= 50, "Streptococcus pneumoniae",
+                                   "others"),
+          `Genome length` = as.double(Assembly_Length),
+          `GC content` = NA_character_,
+          Serotype = Serotype,
+          `Sequence Type` = ST,
+          `GPSC Strain` = GPSC,
+          aroE = aroE,
+          gdh = gdh,
+          gki = gki,
+          recP = recP,
+          spi = spi,
+          xpt = xpt,
+          ddl = ddl,
+          PBP1a = pbp1a,
+          PBP2b = pbp2b,
+          PBP2x = pbp2x,
+          Chloramphenicol = CHL_Res,
+          Clindamycin = CLI_Res,
+          Erythromycin = ERY_Res,
+          Fluoroquinolones = FQ_Res,
+          Kanamycin = KAN_Res,
+          Linezolid = NA_character_,
+          Tetracycline = TET_Res,
+          Trimethoprim = TMP_Res,
+          Sulfamethoxazole = SMX_Res,
+          `Co-Trimoxazole` = COT_Res,
+          Amoxicillin = AMO_Res,
+          Ceftriaxone = CFT_Res.Non.meningital.,
+          Cefotaxime = TAX_Res.Non.meningital.,
+          Cefuroxime = CFX_Res,
+          Meropenem = MER_Res,
+          Penicillin = PEN_Res.Non.meningital.
+        )
+    )
   ) %>% 
     dplyr::rename_all(~stringr::str_replace_all(., " ", "_")) %>% 
     dplyr::rename_with(~ tolower(gsub("[^[:alnum:]_]", "", .x))) %>% 
@@ -322,7 +322,7 @@ df_gen_all <- dplyr::right_join(
       dplyr::mutate(specimen_id = stringr::str_remove(workContigs_name,
                                                       ".fasta"),
                     workContigs_report = "available with DC")
-      ,
+    ,
     by = "specimen_id"
   ) %>% 
   # check all available alignments
@@ -341,8 +341,8 @@ df_gen_all <- dplyr::right_join(
         workAlignments_report == "available with DC"
       ~ "but alignments available",
       TRUE ~ workContigs_report
-      )
-    ) %>% 
+    )
+  ) %>% 
   dplyr::select(-area) %>% 
   # rejoined by area
   dplyr::left_join(
@@ -356,6 +356,59 @@ df_gen_all <- dplyr::right_join(
     ,
     by = c("specimen_id" = "file_name")
   ) %>%
+  
+  # combine CC data based on goeBURST output (SLV)
+  dplyr::left_join(
+    read.csv("outputs/phyloviz_goeBURST_output_table.csv") %>%
+      dplyr::mutate(ST = as.character(ST),
+                    workWGS_CC = as.character(CC)
+      )
+    ,
+    by = c("workWGS_MLST_pw_ST" = "ST")
+  ) %>%
+  dplyr::mutate(
+    workWGS_CC = ifelse(is.na(workWGS_CC), "not assigned", workWGS_CC)
+  ) %>% 
+  
+  # combine with new cluster
+  dplyr::left_join(
+    read.csv("outputs/result_poppunk/reclassify_cluster_db_v12/reclassify_cluster_db_v12_external_clusters.csv")
+    ,
+    by = c("specimen_id" = "sample")
+  ) %>%
+  
+  # combine with Salma's work
+  dplyr::left_join(
+    readxl::read_excel("raw_data/Result_NT_GPS.xlsx") %>%
+      dplyr::transmute(
+        sample = Sample_ID,
+        GPSC_salma = ifelse(GPSC == "NA" | GPSC == "_", NA_character_, GPSC)
+      ) %>% 
+      dplyr::distinct(sample, .keep_all = TRUE) # weird duplicated ID
+    ,
+    by = c("specimen_id" = "sample")
+  ) %>%
+  
+  dplyr::mutate(
+    CC = ifelse(is.na(CC), "not assigned", CC),
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned", as.character(GPSC),
+                                 workWGS_gpsc_strain),
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned" | is.na(workWGS_gpsc_strain), as.character(GPSC_salma),
+                                 workWGS_gpsc_strain),
+    
+    # readjust GPSC name based on the latest version
+    workWGS_gpsc_strain = case_when(
+      workWGS_gpsc_strain == "Not assigned" | is.na(workWGS_gpsc_strain) ~ "not assigned",
+      workWGS_gpsc_strain == "904;9" ~ "9;904",
+      workWGS_gpsc_strain == "994;18" ~ "18;994",
+      TRUE ~ workWGS_gpsc_strain
+    ),
+  ) %>%
+  dplyr::select(
+    -CC,
+    -GPSC,
+    -GPSC_salma
+  ) %>% 
   glimpse()
 
 # check unavailable contigs IDs (fasta alignment available)
@@ -372,7 +425,7 @@ df_gen_all %>%
                 workBLAST_species_decision,
                 workWGS_serotype,
                 serotype_final_decision
-                ) %>% 
+  ) %>% 
   # view() %>%
   glimpse()
 
@@ -406,7 +459,7 @@ df_gen_all %>%
   glimpse()
 
 # store genData_old.csv & rewrite genData_all.csv 
-write.csv(df_gen_all, "inputs/genData_all.csv", row.names = F)
+write.csv(df_gen_all, "inputs/genData_all_adjusted_gpsc.csv", row.names = F)
 
 
 # combine epiData with genData
@@ -422,7 +475,7 @@ df_epi_gen_pneumo <- dplyr::left_join(
   by = "specimen_id"
 ) %>% 
   dplyr::left_join(
-    read.csv("inputs/genData_all.csv") %>% 
+    read.csv("inputs/genData_all_adjusted_gpsc.csv") %>% 
       dplyr::select(-area,
                     -workBLAST_species_decision
       )
@@ -433,5 +486,5 @@ df_epi_gen_pneumo <- dplyr::left_join(
   glimpse()
 
 write.csv(df_epi_gen_pneumo,
-          "inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv",
+          "inputs/genData_pneumo_with_epiData_with_final_pneumo_decision_adjusted_gpsc.csv",
           row.names = F)

@@ -56,7 +56,7 @@ df_vaccCoverage <- read.csv("inputs/epiData_eng.csv") %>%
 # dev.off()
 
 # data viz just only for serotype & AMR ########################################
-df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision.csv") %>% 
+df_epi_gen_pneumo <- read.csv("inputs/genData_pneumo_with_epiData_with_final_pneumo_decision_adjusted_gpsc.csv") %>% 
   dplyr::right_join(
     read.table("outputs/result_poppunk/qfile_filtered_19to23.txt") %>% 
       dplyr::mutate(specimen_id = V1,
@@ -731,7 +731,7 @@ serobigsix_all <- df_epi_gen_pneumo %>%
     percent = round(n/n_all*100, 1),
     report = paste0(n, "/", n_all,  " (", percent, "%)"),
     # adjust some values for viz
-    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "not assigned",
                                  "Not\nassigned",
                                  workWGS_gpsc_strain),
     label = ifelse(percent <= 25, " ", paste0(round(percent, 1), "%")),
@@ -771,7 +771,7 @@ serobigsix_all <- df_epi_gen_pneumo %>%
   labs(x = "GPSC", y = "Percentage"
   ) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
         legend.position = "bottom",
         legend.direction = "horizontal",
         # legend.justification = c("left", "top"),
@@ -833,7 +833,7 @@ serobigsix <- df_epi_gen_pneumo %>%
     percent = round(n/n_all*100, 1),
     report = paste0(n, "/", n_all,  " (", percent, "%)"),
     # adjust some values for viz
-    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "Not assigned",
+    workWGS_gpsc_strain = ifelse(workWGS_gpsc_strain == "not assigned",
                                  "Not\nassigned",
                                  workWGS_gpsc_strain),
     label = ifelse(percent <= 25, " ", paste0(round(percent, 1), "%")),
@@ -854,6 +854,7 @@ serobigsix <- df_epi_gen_pneumo %>%
                                        # NT
                                        "NT"
                                      )),
+    
   ) %>% 
   dplyr::arrange(serotype_final_decision,
                  desc(percent),
@@ -865,17 +866,18 @@ serobigsix <- df_epi_gen_pneumo %>%
              fill = vacc_area)) +
   geom_bar(stat = "identity", position = position_dodge()) +
   geom_text(aes(label = label),
-            vjust = -0.5, size = 3,
-            angle = 0,
+            vjust = 0.5, size = 3,
+            angle = 90, hjust = 0,
             position = position_dodge(width = 1)) +
   scale_y_continuous(labels = scales::percent_format(scale = 1),
                      breaks = c(0, 25, 50, 75, 100),
-                     limits = c(0, 110)) +
+                     limits = c(0, 130)) +
+  scale_x_discrete(drop = FALSE) +
   scale_fill_manual(values = c(col_map)) +
   labs(x = "GPSC", y = "Percentage"
   ) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 9.5),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9.5),
         legend.position = "bottom",
         legend.direction = "horizontal",
         # legend.justification = c("left", "top"),
@@ -891,7 +893,7 @@ serobigsix <- df_epi_gen_pneumo %>%
 
 
 png(file = "pictures/genData_gpsc_serobigsix_vaccArea.png",
-    width = 23, height = 29, unit = "cm", res = 600)
+    width = 25, height = 29, unit = "cm", res = 600)
 cowplot::plot_grid(serobigsix_all, serobigsix,
                    nrow = 2,
                    rel_heights = c(0.5, 1),
